@@ -171,10 +171,23 @@ export const PlanningAgentLog: React.FC<PlanningAgentLogProps> = ({ log, isExpan
       {renderPlanningOutput()}
       <ToolCallsRenderer log={log} />
       
-      {log.full_output && (
-        <details className="group">
+      {log.full_input && (
+        <details className="group" open>
           <summary className={`text-sm font-semibold ${themeColors.contentText} cursor-pointer hover:text-foreground`}>
-            📊 Raw Planning Data
+            Raw Input Data
+          </summary>
+          <div className={`mt-2 ${themeColors.codeBg} p-3 rounded`}>
+            <pre className="text-xs overflow-x-auto max-h-64 overflow-y-auto">
+              {stringifyCleanLogData(log.full_input, 2)}
+            </pre>
+          </div>
+        </details>
+      )}
+
+      {log.full_output && (
+        <details className="group" open>
+          <summary className={`text-sm font-semibold ${themeColors.contentText} cursor-pointer hover:text-foreground`}>
+            Raw Output Data
           </summary>
           <div className={`mt-2 ${themeColors.codeBg} p-3 rounded`}>
             <pre className="text-xs overflow-x-auto max-h-64 overflow-y-auto">

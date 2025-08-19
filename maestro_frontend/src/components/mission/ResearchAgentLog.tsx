@@ -126,10 +126,23 @@ export const ResearchAgentLog: React.FC<ResearchAgentLogProps> = ({ log, isExpan
       <ToolCallsRenderer log={log} />
       {renderFileInteractions()}
       
-      {log.full_output && (
-        <details className="group">
+      {log.full_input && (
+        <details className="group" open>
           <summary className="text-sm font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
-            🔧 Raw Research Data
+            Raw Input Data
+          </summary>
+          <div className="mt-2 bg-gray-100 p-3 rounded">
+            <pre className="text-xs overflow-x-auto max-h-64 overflow-y-auto">
+              {stringifyCleanLogData(log.full_input, 2)}
+            </pre>
+          </div>
+        </details>
+      )}
+
+      {log.full_output && (
+        <details className="group" open>
+          <summary className="text-sm font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
+            Raw Output Data
           </summary>
           <div className="mt-2 bg-gray-100 p-3 rounded">
             <pre className="text-xs overflow-x-auto max-h-64 overflow-y-auto">

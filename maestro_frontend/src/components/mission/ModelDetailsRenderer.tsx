@@ -1,4 +1,5 @@
 import React from 'react';
+import { Cpu, Zap, ChevronsRight } from 'lucide-react';
 import type { ExecutionLogEntry } from './AgentActivityLog';
 
 interface ModelDetailsRendererProps {
@@ -8,38 +9,51 @@ interface ModelDetailsRendererProps {
 export const ModelDetailsRenderer: React.FC<ModelDetailsRendererProps> = ({ log }) => {
   if (!log.model_details) return null;
 
+  const {
+    provider,
+    model_name,
+    duration_sec,
+    prompt_tokens,
+    completion_tokens,
+    total_tokens,
+    cost,
+  } = log.model_details;
+
   return (
-    <div className="mb-4">
-      <h4 className="text-sm font-semibold text-gray-700 mb-2">Model Performance</h4>
-      <div className="bg-white border border-gray-200 rounded p-3">
-        <div className="grid grid-cols-2 gap-4 text-xs">
-          <div>
-            <div className="text-gray-600">Provider:</div>
-            <div className="font-medium">{log.model_details.provider}</div>
+    <div className="mt-2 p-2 bg-gray-50 rounded">
+      <div className="flex items-center text-xs text-gray-500 mb-2">
+        <Cpu className="h-4 w-4 mr-2" />
+        <span className="font-semibold">{provider}</span>
+        <ChevronsRight className="h-4 w-4 mx-1" />
+        <span>{model_name}</span>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+        {duration_sec && (
+          <div className="flex items-center">
+            <Zap className="h-3 w-3 mr-1" />
+            <span>{duration_sec.toFixed(2)}s</span>
           </div>
+        )}
+        {prompt_tokens && (
           <div>
-            <div className="text-gray-600">Model:</div>
-            <div className="font-medium font-mono">{log.model_details.model_name}</div>
+            <span className="font-medium">P:</span> {prompt_tokens}
           </div>
+        )}
+        {completion_tokens && (
           <div>
-            <div className="text-gray-600">Duration:</div>
-            <div className="font-medium">{log.model_details.duration_sec?.toFixed(2)}s</div>
+            <span className="font-medium">C:</span> {completion_tokens}
           </div>
-          {log.model_details.cost !== undefined && log.model_details.cost !== null && (
-            <div>
-              <div className="text-gray-600">Cost:</div>
-              <div className="font-medium">${log.model_details.cost.toFixed(4)}</div>
-            </div>
-          )}
-          {log.model_details.total_tokens && (
-            <div className="col-span-2">
-              <div className="text-gray-600">Tokens:</div>
-              <div className="font-medium">
-                {log.model_details.prompt_tokens} + {log.model_details.completion_tokens} = {log.model_details.total_tokens}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
+        {total_tokens && (
+          <div>
+            <span className="font-medium">T:</span> {total_tokens}
+          </div>
+        )}
+        {cost && (
+          <div>
+            <span className="font-medium">Cost:</span> ${cost.toFixed(6)}
+          </div>
+        )}
       </div>
     </div>
   );
