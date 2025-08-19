@@ -9,7 +9,7 @@ from ai_researcher.config import THOUGHT_PAD_CONTEXT_LIMIT
 from ai_researcher.agentic_layer.context_manager import ContextManager, MissionContext, ExecutionLogEntry
 from ai_researcher.agentic_layer.model_dispatcher import ModelDispatcher
 from ai_researcher.agentic_layer.tool_registry import ToolRegistry, ToolDefinition
-from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, PlanStep, ReportSection, SimplifiedPlanResponse
+from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection, SimplifiedPlanResponse
 from ai_researcher.agentic_layer.schemas.research import ResearchResultResponse, ResearchFindings
 from ai_researcher.agentic_layer.schemas.analysis import RequestAnalysisOutput
 from ai_researcher.agentic_layer.schemas.notes import Note

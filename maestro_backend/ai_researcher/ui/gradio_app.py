@@ -17,7 +17,7 @@ from gradio.themes.utils import colors, fonts, sizes
 if TYPE_CHECKING:
     from ai_researcher.agentic_layer.agent_controller import AgentController
     from ai_researcher.agentic_layer.context_manager import ContextManager, ExecutionLogEntry, MissionContext
-    from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection, PlanStep
+    from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection
     from ai_researcher.core_rag.embedder import TextEmbedder
     from ai_researcher.core_rag.pgvector_store import PGVectorStore as VectorStore
     from ai_researcher.core_rag.reranker import TextReranker
@@ -51,7 +51,7 @@ except NameError:
 # --- Imports from ai_researcher (Placeholders - adjust as needed) ---
 try:
     from ai_researcher.agentic_layer.context_manager import ExecutionLogEntry, MissionContext
-    from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection, PlanStep
+    from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection
     from ai_researcher.core_rag.embedder import TextEmbedder
     from ai_researcher.core_rag.pgvector_store import PGVectorStore as VectorStore
     from ai_researcher.core_rag.reranker import TextReranker
@@ -89,9 +89,6 @@ except ImportError as e:
         """Placeholder class for ReportSection when imports fail."""
         pass
     
-    class PlanStep:
-        """Placeholder class for PlanStep when imports fail."""
-        pass
 
 # --- Custom Gradio Theme Definition ---
 class RetroAcademicTheme(Base):

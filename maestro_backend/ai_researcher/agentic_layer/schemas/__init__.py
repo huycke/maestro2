@@ -2,7 +2,7 @@ from ai_researcher.agentic_layer.schemas.analysis import RequestAnalysisOutput
 from ai_researcher.agentic_layer.schemas.goal import GoalEntry
 from ai_researcher.agentic_layer.schemas.messenger import MessengerResponse
 from ai_researcher.agentic_layer.schemas.notes import Note
-from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, PlanStep, ReportSection, SimplifiedPlanResponse
+from ai_researcher.agentic_layer.schemas.planning import ReportSection, SimplifiedPlanResponse
 from ai_researcher.agentic_layer.schemas.reflection import ReflectionOutput, SuggestedSubsectionTopic
 from ai_researcher.agentic_layer.schemas.research import ResearchResultResponse, ResearchFindings
 from ai_researcher.agentic_layer.schemas.thought import ThoughtEntry

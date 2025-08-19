@@ -187,7 +187,6 @@ Planning Guidelines:
         "title": "Subsection Title 1", // From suggestion
         "description": "Detailed description for subsection 1.", // From suggestion or generated based on goal
         "associated_note_ids": ["note_sub_B", "note_sub_C"], // Notes specific to this subsection
-        // No depends_on_steps field needed
         "subsections": [], // Subsections CANNOT have further nesting (depth limit)
         "research_strategy": "research_based" // Or other appropriate strategy based on analysis
         }
@@ -349,13 +348,9 @@ Planning Guidelines:
 
             # Use the centralized JSON utilities to parse and prepare the response
             parsed_data = parse_llm_json_response(json_str)
-            prepared_data = prepare_for_pydantic_validation(parsed_data, SimplifiedPlanResponse)
 
-            # --- Remove steps field if present (since it's no longer needed) ---
-            if 'steps' in parsed_data:
-                logger.info(f"{self.agent_name}: Removing 'steps' field from response as it's no longer needed.")
-                del parsed_data['steps']
-            # --- End Remove steps field ---
+            # Note: The 'steps' field is no longer part of the schema, so no removal is needed.
+            # Pydantic with `extra='forbid'` will handle validation.
 
             plan_response = SimplifiedPlanResponse(**parsed_data)
 

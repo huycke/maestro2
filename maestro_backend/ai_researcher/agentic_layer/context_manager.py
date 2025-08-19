@@ -15,7 +15,7 @@ from database import crud, models
 # Use absolute imports starting from the top-level package 'ai_researcher'
 from ai_researcher.config import get_current_time
 from ai_researcher import config
-from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, PlanStep, ReportSection # <-- Import ReportSection
+from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection # <-- Import ReportSection
 from ai_researcher.agentic_layer.schemas.research import ResearchResultResponse
 from ai_researcher.agentic_layer.schemas.notes import Note # <-- Import Note schema
 from ai_researcher.agentic_layer.schemas.thought import ThoughtEntry 
