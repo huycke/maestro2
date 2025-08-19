@@ -451,3 +451,87 @@ def cleanup_failed_document_improved(db: Session, doc_id: str, user_id: int) -> 
     except Exception as e:
         logger.error(f"Error in cleanup_failed_document_improved: {e}")
         return False
+
+def cleanup_existing_document_for_reindex(db: Session, doc_id: str, user_id: int) -> bool:
+    """
+    Clean up an existing document's processed data for re-indexing.
+    This function is synchronous and designed to be called from other CRUD operations.
+    """
+    logger.info(f"Cleaning up document {doc_id} for re-indexing")
+
+    try:
+        # Step 1: Verify document exists and user has permission
+        document = crud.get_document(db, doc_id, user_id)
+        if not document:
+            logger.warning(f"Document {doc_id} not found or user {user_id} lacks permission")
+            return False
+
+        # Step 2: Delete from ChromaDB vector store
+        try:
+            from ai_researcher.core_rag.vector_store_singleton import get_vector_store
+            vector_store = get_vector_store()
+            dense_deleted, sparse_deleted = vector_store.delete_document(doc_id)
+
+            if dense_deleted > 0 or sparse_deleted > 0:
+                logger.info(f"Deleted {dense_deleted + sparse_deleted} chunks from vector store for re-indexing")
+            else:
+                logger.info(f"No chunks found in vector store for {doc_id} to clean up")
+        except Exception as e:
+            logger.error(f"Failed to delete from vector store for re-indexing: {e}")
+            # Continue with other cleanup even if vector store fails
+
+        # Step 3: Delete physical files (markdown and metadata, but not the original PDF)
+        import shutil
+        from pathlib import Path
+
+        base_path = Path("/app/ai_researcher/data")
+        markdown_dir = base_path / "processed" / "markdown"
+        metadata_dir = base_path / "processed" / "metadata"
+
+        files_deleted = []
+
+        # Delete markdown file
+        markdown_file = markdown_dir / f"{doc_id}.md"
+        if markdown_file.exists():
+            try:
+                markdown_file.unlink()
+                files_deleted.append(str(markdown_file))
+                logger.info(f"Deleted markdown file for re-indexing: {markdown_file}")
+            except Exception as e:
+                logger.error(f"Failed to delete markdown file {markdown_file}: {e}")
+
+        # Delete metadata file
+        metadata_file = metadata_dir / f"{doc_id}.json"
+        if metadata_file.exists():
+            try:
+                metadata_file.unlink()
+                files_deleted.append(str(metadata_file))
+                logger.info(f"Deleted metadata file for re-indexing: {metadata_file}")
+            except Exception as e:
+                logger.error(f"Failed to delete metadata file: {e}")
+
+        if files_deleted:
+            logger.info(f"Deleted {len(files_deleted)} physical files for re-indexing")
+
+        # Step 4: Clear metadata and reset status in the database
+        try:
+            document.metadata_ = {"file_hash": document.metadata_.get("file_hash")} if document.metadata_ else {}
+            document.chunk_count = 0
+            document.processing_status = "pending"
+            document.processing_error = None
+            document.upload_progress = 0
+            document.updated_at = get_current_time()
+            db.commit()
+            db.refresh(document)
+            logger.info(f"Cleared metadata and reset status for document {doc_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to clear metadata in main database for re-indexing: {e}")
+            db.rollback()
+            return False
+
+    except Exception as e:
+        logger.error(f"Unexpected error during document cleanup for re-indexing: {e}")
+        import traceback
+        traceback.print_exc()
+        return False

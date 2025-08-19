@@ -768,6 +768,34 @@ async def delete_document(
         logger.error(f"Error deleting document {doc_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete document")
 
+@router.post("/documents/{doc_id}/reindex", status_code=200)
+async def reindex_document(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_from_cookie)
+):
+    """
+    Re-index a document by its ID.
+    """
+    logger.info(f"Re-indexing document {doc_id} for user {current_user.id}")
+
+    # Queue the document for re-indexing
+    reindexed_document = crud.queue_document_for_reindexing(db, doc_id=doc_id, user_id=current_user.id)
+
+    if not reindexed_document:
+        raise HTTPException(status_code=404, detail="Document not found or failed to queue for re-indexing")
+
+    # Send a websocket update to notify the frontend
+    await send_document_update(str(current_user.id), {
+        "type": "document_progress",
+        "doc_id": doc_id,
+        "status": "pending",
+        "progress": 0,
+        "message": "Re-indexing..."
+    })
+
+    return {"message": "Document re-indexing initiated"}
+
 # Bulk operations endpoints
 @router.post("/documents/bulk-delete", status_code=204)
 async def bulk_delete_documents(
