@@ -21,7 +21,10 @@ from ai_researcher.agentic_layer.model_dispatcher import ModelDispatcher
 # Note: MODEL_MAPPING was removed from model_dispatcher, we should get it from config now
 from ai_researcher import config # Import config to get model mapping
 from ai_researcher.agentic_layer.tool_registry import ToolRegistry
-from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlanResponse, SimplifiedPlan # Import the schemas
+from ai_researcher.agentic_layer.schemas.planning import (
+    SimplifiedPlanResponse, SimplifiedPlan, ReportSection,
+    SimplifiedPlanResponseForSchema, ReportSectionL1, ReportSectionL2
+)
 from ai_researcher.agentic_layer.schemas.goal import GoalEntry # Import GoalEntry
 import logging # <-- Add logging
 
@@ -204,6 +207,34 @@ Planning Guidelines:
 """
         return prompt
 
+    def _convert_to_recursive_plan(self, schema_response: SimplifiedPlanResponseForSchema) -> SimplifiedPlanResponse:
+        """Converts a schema-specific, non-recursive plan response back to the standard recursive plan response."""
+
+        def convert_section(section: Any) -> ReportSection:
+            """Recursively converts schema-specific sections to the standard ReportSection."""
+            # This function can handle ReportSectionL1 and ReportSectionL2
+            data = section.model_dump(exclude={'subsections'})
+
+            # Recursively convert subsections if they exist
+            new_subsections = []
+            if hasattr(section, 'subsections') and section.subsections:
+                for sub in section.subsections:
+                    new_subsections.append(convert_section(sub))
+
+            # Create the new ReportSection with converted subsections
+            return ReportSection(**data, subsections=new_subsections)
+
+        # Convert the entire outline
+        recursive_outline = [convert_section(s) for s in schema_response.report_outline]
+
+        # Create the final SimplifiedPlanResponse object
+        return SimplifiedPlanResponse(
+            mission_goal=schema_response.mission_goal,
+            report_outline=recursive_outline,
+            parsing_error=schema_response.parsing_error,
+            generated_thought=schema_response.generated_thought
+        )
+
     async def run( # Make the method async
         self,
         user_request: str,
@@ -293,7 +324,7 @@ Planning Guidelines:
 
         # Start with json_schema format, with fallback to json_object
         response_format_pydantic = get_json_schema_format(
-            pydantic_model=SimplifiedPlanResponse,
+            pydantic_model=SimplifiedPlanResponseForSchema,
             schema_name="research_plan"
         )
 
@@ -349,10 +380,9 @@ Planning Guidelines:
             # Use the centralized JSON utilities to parse and prepare the response
             parsed_data = parse_llm_json_response(json_str)
 
-            # Note: The 'steps' field is no longer part of the schema, so no removal is needed.
-            # Pydantic with `extra='forbid'` will handle validation.
-
-            plan_response = SimplifiedPlanResponse(**parsed_data)
+            # Convert from the schema-specific model to the recursive application model
+            plan_response_schema = SimplifiedPlanResponseForSchema(**parsed_data)
+            plan_response = self._convert_to_recursive_plan(plan_response_schema)
 
             if plan_response.parsing_error:
                   logger.error(f"{self.agent_name} Error: LLM indicated a parsing error: {plan_response.parsing_error}")
