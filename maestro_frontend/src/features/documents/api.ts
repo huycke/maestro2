@@ -121,6 +121,11 @@ export const cancelDocumentProcessing = async (docId: string): Promise<any> => {
   return response.data;
 };
 
+export const reindexDocument = async (docId: string): Promise<any> => {
+  const response = await apiClient.post(`/api/documents/${docId}/reindex`);
+  return response.data;
+};
+
 // Metadata editing and document viewing API calls
 export interface DocumentMetadataUpdate {
   title?: string;

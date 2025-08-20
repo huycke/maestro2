@@ -687,6 +687,34 @@ def update_document_status(db: Session, doc_id: str, user_id: int, status: str,
         return document
     return None
 
+def queue_document_for_reindexing(db: Session, doc_id: str, user_id: int) -> Optional[Document]:
+    """Queue a document for re-indexing by clearing its data and setting status to 'pending'."""
+    from database.crud_documents_improved import cleanup_existing_document_for_reindex
+
+    # First, clean up the existing document's processed data
+    cleanup_success = cleanup_existing_document_for_reindex(db, doc_id, user_id)
+
+    if not cleanup_success:
+        logger.error(f"Failed to clean up document {doc_id} for re-indexing. Aborting.")
+        return None
+
+    # Then, update the document's status to be picked up by the processor
+    document = db.query(Document).filter(
+        and_(Document.id == doc_id, Document.user_id == user_id)
+    ).first()
+
+    if document:
+        document.processing_status = "pending"
+        document.processing_error = None
+        document.upload_progress = 0
+        document.updated_at = get_current_time()
+        db.commit()
+        db.refresh(document)
+        logger.info(f"Document {doc_id} has been queued for re-indexing.")
+        return document
+
+    return None
+
 # WritingSessionStats CRUD operations
 def get_or_create_writing_session_stats(db: Session, session_id: str) -> WritingSessionStats:
     """Get existing stats or create new ones for a writing session."""

@@ -10,13 +10,15 @@ import {
   BookOpen,
   Upload,
   Edit,
-  Eye
+  Eye,
+  RefreshCw
 } from 'lucide-react';
 import type { Document } from '../types';
 import { 
   bulkDeleteDocuments, 
   bulkAddDocumentsToGroup, 
-  bulkRemoveDocumentsFromGroup
+  bulkRemoveDocumentsFromGroup,
+  reindexDocument
 } from '../api';
 import { useDocumentContext } from '../context/DocumentContext';
 import { DeleteConfirmationModal } from '../../../components/ui/DeleteConfirmationModal';
@@ -302,6 +304,18 @@ export const EnhancedDocumentList: React.FC<EnhancedDocumentListProps> = ({
     setSelectedDocument(null);
   }, []);
 
+  const handleReindex = useCallback(async (docId: string) => {
+    try {
+      await reindexDocument(docId);
+      // Show a success toast or notification
+      console.log(`Document ${docId} is being re-indexed.`);
+      onDocumentAdded?.(); // Refresh the list
+    } catch (err) {
+      setError(`Failed to re-index document ${docId}`);
+      console.error('Re-index error:', err);
+    }
+  }, [onDocumentAdded]);
+
   return (
     <div 
       className={`h-full bg-background flex flex-col relative ${isDragOver ? 'bg-primary/5' : ''}`}
@@ -512,6 +526,16 @@ export const EnhancedDocumentList: React.FC<EnhancedDocumentListProps> = ({
                             title="Edit metadata"
                           >
                             <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReindex(doc.id);
+                            }}
+                            className="p-1 text-muted-foreground hover:text-primary rounded transition-colors"
+                            title="Re-index document"
+                          >
+                            <RefreshCw className="h-4 w-4" />
                           </button>
                         </div>
                       )}
