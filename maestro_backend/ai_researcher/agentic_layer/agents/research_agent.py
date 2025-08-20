@@ -29,7 +29,7 @@ from ai_researcher.dynamic_config import (
 )
 from ai_researcher.agentic_layer.tool_registry import ToolRegistry
 from ai_researcher.core_rag.query_preparer import QueryPreparer, QueryRewritingTechnique # <-- Import QueryPreparer
-from ai_researcher.agentic_layer.schemas.planning import PlanStep, ActionType, ReportSection
+from ai_researcher.agentic_layer.schemas.planning import ReportSection
 from ai_researcher.agentic_layer.schemas.research import ResearchFindings, ResearchResultResponse, Source
 from ai_researcher.agentic_layer.schemas.notes import Note
 from ai_researcher.agentic_layer.schemas.goal import GoalEntry # Import GoalEntry

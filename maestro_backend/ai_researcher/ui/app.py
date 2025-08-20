@@ -17,7 +17,7 @@ from ai_researcher.agentic_layer.context_manager import ExecutionLogEntry
 from ai_researcher.ui.file_converters import markdown_to_pdf, markdown_to_docx
 
 # Import schemas needed for plan parsing
-from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection, PlanStep
+from ai_researcher.agentic_layer.schemas.planning import SimplifiedPlan, ReportSection
 
 # --- Define Project Root Early ---
 # Needed for path configurations below
@@ -933,18 +933,9 @@ if st.session_state.mission_status in ["running", "conducting_research", "warnin
                                                      ))
                                                  return sections
                                              parsed_outline = parse_sections(plan_data.get('report_outline', []))
-                                             parsed_steps = []
-                                             for step_data in plan_data.get('steps', []):
-                                                  parsed_steps.append(PlanStep(
-                                                      step_id=step_data.get('step_id', str(uuid.uuid4())),
-                                                      description=step_data.get('description', 'No description'),
-                                                      action_type=step_data.get('action_type'), # <-- Added missing field
-                                                      target_section_id=step_data.get('target_section_id')
-                                                  ))
                                              parsed_plan = SimplifiedPlan(
                                                  mission_goal=plan_data.get('mission_goal', 'Goal not specified'),
-                                                 report_outline=parsed_outline,
-                                                 steps=parsed_steps
+                                                 report_outline=parsed_outline
                                              )
                                              st.session_state.mission_plan = parsed_plan
                                              logger.info(f"UI: Updated mission plan by parsing '{log_entry.action}' log entry.")
