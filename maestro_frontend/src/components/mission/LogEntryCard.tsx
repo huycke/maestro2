@@ -4,6 +4,7 @@ import type { ExecutionLogEntry } from './AgentActivityLog';
 import { ActionParser } from './ActionParser';
 import { formatActivityLogTime } from '../../utils/timezone';
 import { getAgentIcon, getAgentColorClass } from './agentIcons';
+import { ModelDetailsRenderer } from './ModelDetailsRenderer';
 
 interface LogEntryCardProps {
   log: ExecutionLogEntry;
@@ -148,24 +149,6 @@ export const LogEntryCard: React.FC<LogEntryCardProps> = ({
             </p>
           )}
         </div>
-
-        {/* Compact Model Details - Smaller and more beautified */}
-        {log.model_details && (
-          <div className="flex-shrink-0">
-            <div className="flex items-center space-x-1">
-              {log.model_details.cost !== undefined && log.model_details.cost !== null && (
-                <div className="bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded-full text-xs font-medium">
-                  ${log.model_details.cost.toFixed(4)}
-                </div>
-              )}
-              {log.model_details.duration_sec && (
-                <div className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-xs font-medium">
-                  {log.model_details.duration_sec.toFixed(1)}s
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Expanded Content */}
@@ -174,6 +157,7 @@ export const LogEntryCard: React.FC<LogEntryCardProps> = ({
           <div className="p-3 overflow-hidden">
             <div className="max-w-full overflow-x-auto">
               {children}
+              <ModelDetailsRenderer log={log} />
             </div>
           </div>
         </div>

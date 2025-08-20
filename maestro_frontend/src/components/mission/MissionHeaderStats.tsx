@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { DollarSign, Search, Clock, Zap } from 'lucide-react';
+import { DollarSign, Search, Clock, Zap, Pause, Square } from 'lucide-react';
 import type { ExecutionLogEntry } from './AgentActivityLog';
+import { Button } from '../ui/button';
 
 interface MissionHeaderStatsProps {
   logs: ExecutionLogEntry[];
@@ -65,42 +66,55 @@ export const MissionHeaderStats: React.FC<MissionHeaderStatsProps> = ({
   }
 
   return (
-    <div className="flex items-center space-x-2 text-xs">
-      {/* Total Cost */}
-      <div className="flex items-center space-x-1">
-        <DollarSign className="h-3 w-3 text-green-600" />
-        <span className="text-green-700 font-medium">
-          {formatCurrency(stats.totalCost)}
-        </span>
-      </div>
-
-      {/* Web Searches */}
-      <div className="flex items-center space-x-1">
-        <Search className="h-3 w-3 text-blue-600" />
-        <span className="text-blue-700 font-medium">
-          {stats.webSearches}
-        </span>
-      </div>
-
-      {/* Duration (only show if mission has run) */}
-      {stats.totalDuration > 0 && (
+    <div className="flex justify-between items-center w-full">
+      <div className="flex items-center space-x-2 text-xs">
+        {/* Total Cost */}
         <div className="flex items-center space-x-1">
-          <Clock className="h-3 w-3 text-purple-600" />
-          <span className="text-purple-700 font-medium">
-            {formatDuration(stats.totalDuration)}
+          <DollarSign className="h-3 w-3 text-green-600" />
+          <span className="text-green-700 font-medium">
+            {formatCurrency(stats.totalCost)}
           </span>
         </div>
-      )}
 
-      {/* Tokens (only show if significant) */}
-      {stats.totalTokens > 0 && (
+        {/* Web Searches */}
         <div className="flex items-center space-x-1">
-          <Zap className="h-3 w-3 text-orange-600" />
-          <span className="text-orange-700 font-medium">
-            {formatNumber(stats.totalTokens)}
+          <Search className="h-3 w-3 text-blue-600" />
+          <span className="text-blue-700 font-medium">
+            {stats.webSearches}
           </span>
         </div>
-      )}
+
+        {/* Duration (only show if mission has run) */}
+        {stats.totalDuration > 0 && (
+          <div className="flex items-center space-x-1">
+            <Clock className="h-3 w-3 text-purple-600" />
+            <span className="text-purple-700 font-medium">
+              {formatDuration(stats.totalDuration)}
+            </span>
+          </div>
+        )}
+
+        {/* Tokens (only show if significant) */}
+        {stats.totalTokens > 0 && (
+          <div className="flex items-center space-x-1">
+            <Zap className="h-3 w-3 text-orange-600" />
+            <span className="text-orange-700 font-medium">
+              {formatNumber(stats.totalTokens)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Button variant="outline" size="sm" disabled>
+          <Pause className="h-4 w-4 mr-2" />
+          Pause
+        </Button>
+        <Button variant="destructive" size="sm" disabled>
+          <Square className="h-4 w-4 mr-2" />
+          Stop
+        </Button>
+      </div>
     </div>
   );
 };
