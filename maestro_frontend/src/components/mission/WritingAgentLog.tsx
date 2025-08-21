@@ -3,6 +3,7 @@ import { PenTool, Edit3, BookOpen } from 'lucide-react';
 import type { ExecutionLogEntry } from './AgentActivityLog';
 import { ToolCallsRenderer } from './ToolCallsRenderer';
 import { themeColors } from './themeColors';
+import { stringifyCleanLogData } from '../../utils/logUtils';
 
 interface WritingAgentLogProps {
   log: ExecutionLogEntry;

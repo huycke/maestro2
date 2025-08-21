@@ -2,6 +2,7 @@ import React from 'react';
 import { Eye, MessageSquare, CheckCircle, AlertTriangle, BarChart3, Lightbulb, Target, FileText, Search } from 'lucide-react';
 import type { ExecutionLogEntry } from './AgentActivityLog';
 import { ToolCallsRenderer } from './ToolCallsRenderer';
+import { stringifyCleanLogData } from '../../utils/logUtils';
 
 interface ReflectionAgentLogProps {
   log: ExecutionLogEntry;

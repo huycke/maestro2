@@ -233,6 +233,12 @@ cd maestro
 docker compose up -d
 ```
 
+**For local development with hot-reloading:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up -d --build
+```
+
 **⚠️ First Run:** Initial startup takes 5-10 minutes to download AI models. Monitor progress with:
 ```bash
 docker compose logs -f maestro-backend

@@ -33,4 +33,4 @@ WORKDIR /app
 EXPOSE 3000
 
 # Start serve with CORS enabled for cross-origin requests
-CMD ["serve", "-s", ".", "-l", "3000", "--cors"]
+CMD ["serve", "-s", "/app", "-l", "3000", "--cors"]
