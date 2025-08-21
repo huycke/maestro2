@@ -3,4 +3,6 @@ This is a log that contains the user's record of activity compled by the Gemini 
 
 
 ## Entries ##
-The "frontend" was not running; Gemini created a dockerfile.dev to handle the issue with a production vs development environment on the docker image (was causing issues like no nmp)
+-- The "frontend" was not running; Gemini created a dockerfile.dev to handle the issue with a production vs development environment on the docker image (was causing issues like no nmp).
+
+-- We found issues with the ports in the docker .yml files. different services are pointing to different ports on the localhost and not communicating with one another. This error arose due to sloppy file changes

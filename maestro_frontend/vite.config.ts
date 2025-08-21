@@ -7,11 +7,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/ws': {
-        target: 'ws://maestro_backend:8001',
+        target: 'ws://backend:8000',
         ws: true,
       },
       '/api': {
-        target: 'http://maestro_backend:8001',
+        target: 'http://backend:8000',
         changeOrigin: true,
       },
     },
