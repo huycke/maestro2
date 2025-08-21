@@ -1,0 +1,6 @@
+# Gemini Work Log   
+This is a log that contains the user's record of activity compled by the Gemini agentic programing tool in this repo. You can use the log to see what we've tried in the past, and the progress we have, or have not, been able to make.
+
+
+## Entries ##
+The "frontend" was not running; Gemini created a dockerfile.dev to handle the issue with a production vs development environment on the docker image (was causing issues like no nmp)

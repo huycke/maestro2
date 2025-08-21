@@ -5,7 +5,7 @@ services:
   frontend:
     build:
       context: ./maestro_frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     image: maestro-frontend-dev
     container_name: maestro-frontend-dev
     ports:
@@ -13,7 +13,6 @@ services:
     volumes:
       - ./maestro_frontend:/app
       - /app/node_modules
-    command: npm run dev -- --host
     networks:
       - maestro-network
   doc-processor:
