@@ -40,6 +40,7 @@ class OutlineModification(BaseModel):
     Represents a single proposed modification to the research outline.
     """
     modification_type: OutlineModificationType = Field(..., description="The type of change proposed.")
+    target_section_id: Optional[str] = Field(None, description="The ID of the section this modification applies to.")
     details: ModificationDetails = Field(...)  # Remove description to avoid $ref conflict
     reasoning: str = Field(..., description="Explanation from the agent on why this modification is suggested.")
 
