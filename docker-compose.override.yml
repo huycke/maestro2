@@ -1,7 +1,14 @@
 services:
   backend:
     volumes:
-      - ./maestro_backend:/app
+      # --- Volumes from base file ---
+      - maestro-data:/app/ai_researcher/data
+      - ./maestro_model_cache:/root/.cache/huggingface
+      - ./maestro_datalab_cache:/root/.cache/datalab
+      - ./reports:/app/reports
+      # --- Additions for development ---
+      - python_packages:/usr/local/lib/python3.10/dist-packages
+
   frontend:
     build:
       context: ./maestro_frontend
@@ -15,9 +22,33 @@ services:
       - /app/node_modules
     networks:
       - maestro-network
+
   doc-processor:
     volumes:
+      # --- Volumes from base file ---
+      - maestro-data:/app/ai_researcher/data
+      - ./maestro_model_cache:/root/.cache/huggingface
+      - ./maestro_datalab_cache:/root/.cache/datalab
+      - ./reports:/app/reports
+      # --- Additions for development ---
       - ./maestro_backend:/app
+      - python_packages:/usr/local/lib/python3.10/dist-packages
+
   cli:
     volumes:
+      # --- Volumes from base file ---
+      - maestro-data:/app/ai_researcher/data
+      - ./maestro_model_cache:/root/.cache/huggingface
+      - ./maestro_datalab_cache:/root/.cache/datalab
+      - ./reports:/app/reports
+      - ./pdfs:/app/pdfs
+      # --- Additions for development ---
       - ./maestro_backend:/app
+      - python_packages:/usr/local/lib/python3.10/dist-packages
+
+volumes:
+  # Define the named volume for Python packages
+  python_packages:
+  # Define the named volume from the base file
+  maestro-data:
+    external: false

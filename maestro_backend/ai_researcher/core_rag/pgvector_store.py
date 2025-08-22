@@ -19,7 +19,7 @@ import json
 
 # Import database components
 from database.database import get_db
-from database.models import DocumentChunk
+from database.models import Document, DocumentChunk
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,14 @@ class PGVectorStore:
         total_chunks = len(chunks)
         
         db = next(get_db())
+
+        # Check if the document exists before attempting to add chunks
+        document_exists = db.query(Document).filter_by(id=doc_id).first()
+        if not document_exists:
+            logger.error(f"Attempted to add chunks for a non-existent document: {doc_id}")
+            db.close()
+            # This is a critical error, raise an exception to halt processing
+            raise ValueError(f"Document with id {doc_id} does not exist. Cannot add chunks.")
         
         try:
             # Process chunks in batches

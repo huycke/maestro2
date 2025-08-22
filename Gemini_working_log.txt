@@ -5,4 +5,16 @@ This is a log that contains the user's record of activity compled by the Gemini 
 ## Entries ##
 -- The "frontend" was not running; Gemini created a dockerfile.dev to handle the issue with a production vs development environment on the docker image (was causing issues like no nmp).
 
--- We found issues with the ports in the docker .yml files. different services are pointing to different ports on the localhost and not communicating with one another. This error arose due to sloppy file changes
+-- We found issues with the ports in the docker .yml files. different services are pointing to different ports on the localhost and not communicating with one another. This error arose due to sloppy changes in the port mapping.
+
+-- We've run into issues with the "bind mount." The nature of our interactions with the local machine make this process prohibitivly slow for at least document ingestion. We attempted to modify the bind mount and only mount some parts of the repo. Those were not successful in speeding up the application.
+--- Our solution is to not use bind mounts yet, and just rebuild as needed.
+
+-- Corrected a race condition causing a 'ForeignKeyViolation' in the database when a document was deleted during processing. Also fixed a bug where metadata extraction failed for local LLMs that don't support specific response formats.
+
+-- Added a new "Extract Metadata" button to the document list UI. This allows users to manually trigger metadata extraction for an already processed document without needing to do a full re-ingestion.
+
+-- Added a dummy Openrouter API key to the .env file - turns out you have to have an API key for OPENROUTER or else the backed fucks up...local
+
+-- There was a missing documents directory in the backend dockerfile. We've added the line "RUN mkdir -p /app/documents" so when we build the image it creates the /app/documents folder to hold documents being processed
+

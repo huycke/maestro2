@@ -2,6 +2,7 @@
 FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
 
 WORKDIR /app
+RUN mkdir -p /app/documents
 
 # Install system dependencies and Python
 RUN apt-get update && apt-get install -y --no-install-recommends \

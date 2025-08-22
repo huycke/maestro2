@@ -126,6 +126,11 @@ export const reindexDocument = async (docId: string): Promise<any> => {
   return response.data;
 };
 
+export const extractDocumentMetadata = async (docId: string): Promise<Document> => {
+  const response = await apiClient.post(`/api/documents/${docId}/extract-metadata`);
+  return response.data;
+};
+
 // Metadata editing and document viewing API calls
 export interface DocumentMetadataUpdate {
   title?: string;

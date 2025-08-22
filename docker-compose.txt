@@ -57,7 +57,6 @@ services:
     #   - "${BACKEND_HOST}:${BACKEND_PORT}:${BACKEND_INTERNAL_PORT}"
     working_dir: /app
     environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY} # Added this key because was not included baseline
       - MAX_WORKER_THREADS=${MAX_WORKER_THREADS:-10}
       - TZ=${TZ:-UTC}
       - LOG_LEVEL=${LOG_LEVEL:-ERROR}

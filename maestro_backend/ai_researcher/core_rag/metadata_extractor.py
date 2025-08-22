@@ -171,22 +171,14 @@ Extract the metadata based *only* on the text provided above and return it as JS
 
         print(f"MetadataExtractor: Sending request to {self.model}...")
         try:
+            # The 'response_format' parameter is removed to support a wider range of local LLMs
+            # that may not support the 'json_object' type. The prompt is engineered to
+            # return JSON, and the response is parsed manually.
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 max_tokens=1000, # Adjust as needed
-                temperature=0.1, # Low temperature for factual extraction
-                response_format={
-                    "type": "json_object", # Use json_object type for general JSON
-                    # Note: OpenAI API might support json_schema directly,
-                    # but json_object is more broadly compatible with OpenRouter models
-                    # If using OpenAI directly, you might use:
-                    # "type": "json_schema",
-                    # "json_schema": {
-                    #     "name": "document_metadata",
-                    #     "schema": METADATA_SCHEMA
-                    # }
-                }
+                temperature=0.1 # Low temperature for factual extraction
             )
 
             response_content = response.choices[0].message.content

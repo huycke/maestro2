@@ -768,6 +768,67 @@ async def delete_document(
         logger.error(f"Error deleting document {doc_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete document")
 
+@router.post("/documents/{doc_id}/extract-metadata", response_model=schemas.Document)
+async def extract_metadata(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_from_cookie)
+):
+    """
+    Extract metadata for a document from its markdown file and update the database.
+    """
+    logger.info(f"Extracting metadata for document {doc_id} for user {current_user.id}")
+
+    document = crud.get_document(db, doc_id=doc_id, user_id=current_user.id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Path to the markdown file
+    markdown_path = f"/app/ai_researcher/data/processed/markdown/{doc_id}.md"
+    
+    try:
+        import os
+        if not os.path.exists(markdown_path):
+            raise HTTPException(status_code=404, detail="Markdown file not found for this document.")
+
+        with open(markdown_path, 'r', encoding='utf-8') as f:
+            markdown_content = f.read()
+
+        from ai_researcher.core_rag.metadata_extractor import MetadataExtractor
+        
+        # Get user settings to initialize the extractor
+        user_settings = current_user.settings if current_user and current_user.settings else {}
+        metadata_extractor = MetadataExtractor.from_user_settings(user_settings)
+
+        # Extract metadata
+        extracted_metadata = metadata_extractor.extract(markdown_content)
+
+        if not extracted_metadata:
+            raise HTTPException(status_code=500, detail="Failed to extract metadata from the document.")
+
+        # Update the document's metadata
+        existing_metadata = document.metadata_ or {}
+        updated_metadata = {**existing_metadata, **extracted_metadata}
+        document.metadata_ = updated_metadata
+        document.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(document)
+
+        await send_document_update(str(current_user.id), {
+            "type": "metadata_updated",
+            "doc_id": doc_id,
+            "status": "metadata_updated",
+            "metadata": updated_metadata
+        })
+
+        return document
+
+    except Exception as e:
+        logger.error(f"Error extracting metadata for document {doc_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract metadata: {str(e)}")
+
+
 @router.post("/documents/{doc_id}/reindex", status_code=200)
 async def reindex_document(
     doc_id: str,
