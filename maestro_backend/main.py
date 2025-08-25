@@ -21,6 +21,11 @@ app = FastAPI(
     version="2.0.0-alpha"
 )
 
+@app.get("/api/health")
+def health_check():
+    """Simple health check endpoint."""
+    return {"status": "healthy"}
+
 # Configure CORS with environment variables
 def get_cors_origins():
     """Get CORS allowed origins from environment variables."""
@@ -257,6 +262,3 @@ def read_root():
         "docs": "/docs"
     }
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}

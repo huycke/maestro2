@@ -46,6 +46,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     volumes:
       - maestro-data:/app/ai_researcher/data
       - ./maestro_model_cache:/root/.cache/huggingface
@@ -96,7 +102,8 @@ services:
     # ports:
     #   - "${FRONTEND_HOST}:${FRONTEND_PORT}:${FRONTEND_INTERNAL_PORT}"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - maestro-network
     environment:
