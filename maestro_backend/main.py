@@ -21,6 +21,11 @@ app = FastAPI(
     version="2.0.0-alpha"
 )
 
+@app.get("/api/health")
+def health_check():
+    """Simple health check endpoint."""
+    return {"status": "healthy"}
+
 # Configure CORS with environment variables
 def get_cors_origins():
     """Get CORS allowed origins from environment variables."""
@@ -216,6 +221,23 @@ async def startup_event():
     # except Exception as e:
     #     logger.error(f"Failed to run consistency check: {e}", exc_info=True)
 
+    # Start the background document processor
+    try:
+        from services.background_document_processor import background_processor
+        import threading
+
+        # Run the processor in a daemon thread
+        processor_thread = threading.Thread(target=background_processor.start, daemon=True)
+        processor_thread.start()
+
+        app.state.background_processor = background_processor
+        app.state.processor_thread = processor_thread
+        logger.info("Background document processor started.")
+
+    except Exception as e:
+        logger.error(f"Failed to start background document processor: {e}", exc_info=True)
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown."""
@@ -223,6 +245,12 @@ async def shutdown_event():
     if hasattr(app.state, "thread_pool"):
         app.state.thread_pool.shutdown(wait=True)
     
+    # Gracefully shut down the background processor
+    if hasattr(app.state, "background_processor"):
+        logger.info("Shutting down background document processor...")
+        app.state.background_processor.shutdown()
+        # It's a daemon thread, so we don't strictly need to join it
+
     # No need to stop monitoring since we only run once at startup
     pass
 
@@ -234,6 +262,3 @@ def read_root():
         "docs": "/docs"
     }
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}

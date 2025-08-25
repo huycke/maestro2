@@ -70,79 +70,102 @@ class BackgroundDocumentProcessor:
         self._worker_loop()
 
     def _worker_loop(self):
-        """Main worker loop that polls the database for queued documents."""
+        """Main worker loop that listens for notifications or polls for queued documents."""
+        # Get a long-lived database connection for listening
+        from database.database import engine
+
         while not self.shutdown_event.is_set():
-            job_processed = False
-            db = next(get_db())
             try:
-                # Fetch the next queued document
-                document = crud.get_next_queued_document(db)
-                
-                if document:
-                    job_processed = True
-                    self.is_processing = True
+                with engine.connect() as conn:
+                    # Enable autocommit for LISTEN/NOTIFY
+                    conn.execution_options(isolation_level="AUTOCOMMIT")
                     
-                    # Create a job object
-                    job = ProcessingJob(
-                        job_id=str(uuid.uuid4()), # This can be improved to use a job ID from the DB
-                        doc_id=document.id,
-                        user_id=document.user_id,
-                        file_path=Path(document.file_path),
-                        original_filename=document.filename,  # Changed to use filename field
-                        created_at=document.created_at
-                    )
-                    self.current_job = job
+                    # Listen on the document_queue channel
+                    conn.execute(text("LISTEN document_queue"))
+                    print("Worker is listening for document notifications...")
                     
-                    print(f"[{job.doc_id}] Found queued document. Starting processing.")
-                    
-                    # Mark as processing
-                    crud.update_document_status(db, document.id, document.user_id, "processing", 0)
-                    
-                    # Process the document
-                    success = self._process_document_sync(job)
-                    
-                    # Mark as completed or failed, with cleanup if failed
-                    final_status = "completed" if success else "failed"
-                    crud.update_document_status(db, document.id, document.user_id, final_status, 100)
-                    
-                    # If processing failed, clean up any orphaned entries
-                    if not success:
-                        print(f"[{job.doc_id}] Processing failed, performing cleanup...")
-                        try:
-                            from database.crud_documents_improved import cleanup_failed_document_improved
-                            cleanup_success = cleanup_failed_document_improved(db, document.id, document.user_id)
-                            if cleanup_success:
-                                print(f"[{job.doc_id}] Successfully cleaned up failed processing artifacts")
-                            else:
-                                print(f"[{job.doc_id}] Warning: Cleanup encountered some issues")
-                        except Exception as cleanup_error:
-                            print(f"[{job.doc_id}] Error during cleanup: {cleanup_error}")
-                    
-                    print(f"[{job.doc_id}] Document processing finished with status: {final_status}")
-                    
-                    self.is_processing = False
-                    self.current_job = None
+                    while not self.shutdown_event.is_set():
+                        # Process all documents currently in the queue first
+                        while self._process_next_document():
+                            pass
+
+                        # Now wait for notifications
+                        import select
+                        select.select([conn.connection], [], [], 60) # Wait for 60 seconds
+
+                        # After waiting, process any notifications received
+                        conn.connection.poll()
+                        while conn.connection.notifies:
+                            notification = conn.connection.notifies.pop(0)
+                            print(f"Received notification: {notification.payload}")
+                            # A notification just means there's a new job, so we process the queue
+                            self._process_next_document()
 
             except Exception as e:
-                print(f"Error in worker loop: {e}")
-                traceback.print_exc()
-                self.is_processing = False
-                if self.current_job:
-                    crud.update_document_status(db, self.current_job.doc_id, self.current_job.user_id, "failed", 0)
-                    # Also attempt cleanup for the failed job
-                    try:
-                        from database.crud_documents_improved import cleanup_failed_document_improved
-                        cleanup_failed_document_improved(db, self.current_job.doc_id, self.current_job.user_id)
-                        print(f"[{self.current_job.doc_id}] Cleaned up after unexpected error")
-                    except Exception as cleanup_error:
-                        print(f"[{self.current_job.doc_id}] Cleanup after error failed: {cleanup_error}")
-                self.current_job = None
-            finally:
-                db.close()
+                print(f"Error in worker listener loop: {e}", exc_info=True)
+                print("Falling back to polling mode for 30 seconds.")
+                time.sleep(30)
 
-            # If no job was processed, wait before polling again
-            if not job_processed:
-                time.sleep(5) # Poll every 5 seconds
+    def _process_next_document(self) -> bool:
+        """Fetches and processes the next queued document. Returns True if a job was processed."""
+        db = next(get_db())
+        document = None
+        try:
+            document = crud.get_next_queued_document(db)
+            if not document:
+                return False
+
+            self.is_processing = True
+            job = ProcessingJob(
+                job_id=str(uuid.uuid4()),
+                doc_id=document.id,
+                user_id=document.user_id,
+                file_path=Path(document.file_path),
+                original_filename=document.filename,
+                created_at=document.created_at
+            )
+            self.current_job = job
+
+            print(f"[{job.doc_id}] Found queued document. Starting processing.")
+            crud.update_document_status(db, document.id, document.user_id, "processing", 0)
+            db.commit() # Commit status change before processing
+
+            success = self._process_document_sync(job)
+
+            final_status = "completed" if success else "failed"
+            crud.update_document_status(db, document.id, document.user_id, final_status, 100)
+
+            if not success:
+                print(f"[{job.doc_id}] Processing failed, performing cleanup...")
+                try:
+                    from database.crud_documents_improved import cleanup_failed_document_improved
+                    cleanup_success = cleanup_failed_document_improved(db, document.id, document.user_id)
+                    if cleanup_success:
+                        print(f"[{job.doc_id}] Successfully cleaned up failed processing artifacts")
+                    else:
+                        print(f"[{job.doc_id}] Warning: Cleanup encountered some issues")
+                except Exception as cleanup_error:
+                    print(f"[{job.doc_id}] Error during cleanup: {cleanup_error}")
+
+            print(f"[{job.doc_id}] Document processing finished with status: {final_status}")
+
+        except Exception as e:
+            print(f"Error processing document: {e}", exc_info=True)
+            if self.current_job:
+                crud.update_document_status(db, self.current_job.doc_id, self.current_job.user_id, "failed", 0)
+                try:
+                    from database.crud_documents_improved import cleanup_failed_document_improved
+                    cleanup_failed_document_improved(db, self.current_job.doc_id, self.current_job.user_id)
+                    print(f"[{self.current_job.doc_id}] Cleaned up after unexpected error")
+                except Exception as cleanup_error:
+                    print(f"[{self.current_job.doc_id}] Cleanup after error failed: {cleanup_error}")
+        finally:
+            self.is_processing = False
+            self.current_job = None
+            db.commit()
+            db.close()
+
+        return document is not None
     
     
     def _get_vector_store(self) -> VectorStore:

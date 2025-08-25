@@ -53,7 +53,7 @@ def get_db():
         db.close()
 
 def init_db():
-    """Initialize database tables"""
+    """Initialize database tables and create notification trigger."""
     try:
         # Import all models to ensure they're registered with Base
         from . import models
@@ -61,9 +61,53 @@ def init_db():
         # Create all tables
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables initialized successfully")
+
+        # Create the notification trigger for the document queue
+        create_notify_trigger()
+
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
         raise
+
+def create_notify_trigger():
+    """Create a database trigger to notify on new documents."""
+    # Check if we are using PostgreSQL
+    if not DATABASE_URL.startswith("postgresql"):
+        logger.info("Skipping notification trigger creation (not using PostgreSQL)")
+        return
+
+    # SQL to create the trigger function
+    create_function_sql = """
+    CREATE OR REPLACE FUNCTION notify_new_document()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      -- Notify on the 'document_queue' channel
+      PERFORM pg_notify('document_queue', NEW.id::text);
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    """
+
+    # SQL to create the trigger on the documents table
+    create_trigger_sql = """
+    DROP TRIGGER IF EXISTS document_insert_trigger ON documents;
+    CREATE TRIGGER document_insert_trigger
+    AFTER INSERT ON documents
+    FOR EACH ROW
+    WHEN (NEW.processing_status = 'pending' OR NEW.processing_status = 'queued')
+    EXECUTE FUNCTION notify_new_document();
+    """
+
+    try:
+        with engine.connect() as conn:
+            # Use a transaction to ensure both commands succeed
+            with conn.begin():
+                conn.execute(text(create_function_sql))
+                conn.execute(text(create_trigger_sql))
+            logger.info("Successfully created database notification trigger for document queue.")
+    except Exception as e:
+        logger.error(f"Failed to create notification trigger: {e}", exc_info=True)
+        # We can still run without the trigger, the poller will be used
 
 def test_connection():
     """Test database connection"""
