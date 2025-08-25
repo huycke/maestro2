@@ -1,3 +1,6 @@
+# This is a standalone Streamlit application and runs in a separate process.
+# It intentionally instantiates its own components and does not use the main
+# FastAPI app's dependency injection.
 import streamlit as st
 import sys
 import os

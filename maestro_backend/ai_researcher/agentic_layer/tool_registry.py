@@ -73,6 +73,33 @@ class ToolRegistry:
         """
         return [tool.get_schema_for_llm() for tool in self._tools.values()]
 
+    def create_filtered_registry(self, tool_selection: Dict[str, bool]) -> 'ToolRegistry':
+        """
+        Creates a new ToolRegistry instance containing only the tools specified
+        in the tool_selection dictionary.
+
+        Args:
+            tool_selection: A dictionary where keys are tool names and values are booleans
+                            indicating whether to include the tool.
+
+        Returns:
+            A new ToolRegistry instance with the filtered tools.
+        """
+        filtered_registry = ToolRegistry()
+        for tool_name, include in tool_selection.items():
+            if include:
+                if tool_name in self._tools:
+                    filtered_registry.register_tool(self._tools[tool_name])
+                # Also handle aliases or related tools, e.g., web_search enables fetch_web_page_content
+                if tool_name == "web_search" and "fetch_web_page_content" in self._tools:
+                    filtered_registry.register_tool(self._tools["fetch_web_page_content"])
+
+        # Always include non-optional tools like calculator
+        if "calculator" in self._tools:
+            filtered_registry.register_tool(self._tools["calculator"])
+
+        return filtered_registry
+
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Any: # <-- Make async
         """
         Executes a registered tool by name with the provided arguments, handling both sync and async tools.
