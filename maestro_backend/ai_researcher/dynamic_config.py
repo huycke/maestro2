@@ -224,26 +224,29 @@ def get_ai_provider_config(provider_name: str, mission_id: Optional[str] = None)
             if provider_config.get("enabled", False):
                 return {
                     "api_key": provider_config.get("api_key"),
-                    "base_url": provider_config.get("base_url")
+                    "base_url": provider_config.get("base_url"),
+                    "supported_response_formats": provider_config.get("supported_response_formats", [])
                 }
     
     # Fallback to environment variables
     if provider_name == "openrouter":
         return {
             "api_key": os.getenv("OPENROUTER_API_KEY"),
-            "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/")
+            "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/"),
+            "supported_response_formats": ["json_schema"]
         }
     elif provider_name == "local":
         return {
             "api_key": os.getenv("LOCAL_LLM_API_KEY", "none"),
-            "base_url": os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:5000/v1/")
+            "base_url": os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:5000/v1/"),
+            "supported_response_formats": []
         }
     elif provider_name == "custom":
         # Custom provider configuration comes from user settings
         # This will be handled by the user settings above
-        return {"api_key": None, "base_url": None}
+        return {"api_key": None, "base_url": None, "supported_response_formats": []}
     else:
-        return {"api_key": None, "base_url": None}
+        return {"api_key": None, "base_url": None, "supported_response_formats": []}
 
 def get_fast_llm_provider(mission_id: Optional[str] = None) -> str:
     """Get the fast LLM provider from user settings or environment."""

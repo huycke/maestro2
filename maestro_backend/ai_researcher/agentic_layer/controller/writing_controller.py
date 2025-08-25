@@ -4,28 +4,21 @@ from typing import Dict, Any, Optional
 from ai_researcher.agentic_layer.model_dispatcher import ModelDispatcher
 from database.models import User
 
+from ai_researcher.core_rag.embedder import TextEmbedder
+from ai_researcher.core_rag.reranker import TextReranker
+
 class WritingController:
     """
     Manages user-specific instances of the ModelDispatcher.
     Ensures that each user's requests are handled by a dispatcher
     configured with their specific API keys and settings.
     """
-    _instances: Dict[int, "WritingController"] = {}
-    _lock = asyncio.Lock()
 
-    def __init__(self, user: User):
+    def __init__(self, user: User, text_embedder: TextEmbedder, text_reranker: TextReranker):
         self.user = user
         self.model_dispatcher = ModelDispatcher(user_settings=user.settings)
-
-    @classmethod
-    async def get_instance(cls, user: User) -> "WritingController":
-        """
-        Retrieves or creates a singleton instance of the WritingController for a given user.
-        """
-        async with cls._lock:
-            if user.id not in cls._instances:
-                cls._instances[user.id] = cls(user)
-            return cls._instances[user.id]
+        self.text_embedder = text_embedder
+        self.text_reranker = text_reranker
 
     async def run_writing_task(self, prompt: str, context: str) -> str:
         """

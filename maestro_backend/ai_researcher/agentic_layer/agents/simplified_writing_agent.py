@@ -4,6 +4,8 @@ import logging
 from typing import Dict, Any, Optional, List
 
 from ai_researcher.agentic_layer.model_dispatcher import ModelDispatcher
+from ai_researcher.core_rag.embedder import TextEmbedder
+from ai_researcher.core_rag.reranker import TextReranker
 from ai_researcher import config
 
 logger = logging.getLogger(__name__)
@@ -114,9 +116,11 @@ class SimplifiedWritingAgent:
     2. Main: Generates the response and any document modifications.
     """
 
-    def __init__(self, model_dispatcher: ModelDispatcher):
+    def __init__(self, model_dispatcher: ModelDispatcher, text_embedder: TextEmbedder, text_reranker: TextReranker):
         self.model_dispatcher = model_dispatcher
         self.stats_tracker = WritingStatsTracker()
+        self.text_embedder = text_embedder
+        self.text_reranker = text_reranker
 
     async def run(self, prompt: str, draft_content: str, chat_history: str, context_info: Optional[Dict[str, Any]] = None, status_callback: Optional[callable] = None) -> Dict[str, Any]:
         """
@@ -638,16 +642,11 @@ class SimplifiedWritingAgent:
                 logger.error(f"Failed to initialize vector store: {e}", exc_info=True)
                 return f"Error: Unable to access document database. Error: {str(e)}", []
             try:
-                # Use cached model instances to avoid repeated initialization
-                from ai_researcher.core_rag.model_cache import model_cache
-                embedder = model_cache.get_embedder()
-                reranker = model_cache.get_reranker()
-                
                 # Initialize retriever
                 retriever = Retriever(
                     vector_store=vector_store,
-                    embedder=embedder,
-                    reranker=reranker
+                    embedder=self.text_embedder,
+                    reranker=self.text_reranker
                 )
             except Exception as e:
                 logger.error(f"Failed to initialize retriever components: {e}", exc_info=True)
