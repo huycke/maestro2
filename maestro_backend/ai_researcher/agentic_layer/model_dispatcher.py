@@ -4,12 +4,17 @@ from typing import List, Dict, Any, Optional, Tuple
 import time
 import logging
 import asyncio
+import json
 import random # <-- Import random for jitter
 import httpx # <-- Import httpx again for pricing fetch
 from decimal import Decimal, InvalidOperation # <-- Import Decimal for accurate cost calculation
+
 from ai_researcher import config # Use absolute import
 from ai_researcher.dynamic_config import get_model_name
 from ai_researcher.user_context import get_user_settings
+from ai_researcher.agentic_layer.utils.json_utils import sanitize_json_string
+from openai.types.chat import ChatCompletionMessage
+from openai.types.chat.chat_completion import Choice
 
 # Configure logging - respect LOG_LEVEL environment variable
 logger = logging.getLogger(__name__)
@@ -446,8 +451,42 @@ class ModelDispatcher:
             request_params["tools"] = tools
         if tool_choice:
             request_params["tool_choice"] = tool_choice
-        if response_format:
-            request_params["response_format"] = response_format
+        # --- NEW: Conditional Response Format Handling ---
+        # Get provider config to check for supported formats
+        provider_config = self._get_user_provider_config(provider_name) or config.PROVIDER_CONFIG.get(provider_name, {})
+        supported_formats = provider_config.get("supported_response_formats", [])
+
+        fallback_json_parsing = False
+        if response_format and response_format.get("type"):
+            if response_format["type"] in supported_formats:
+                # Provider supports the format, add it to the request
+                request_params["response_format"] = response_format
+                logger.info(f"Using native response_format '{response_format['type']}' for provider '{provider_name}'.")
+            else:
+                # Provider does not support the format, use fallback
+                fallback_json_parsing = True
+                logger.warning(f"Provider '{provider_name}' does not support '{response_format['type']}'. "
+                               f"Switching to fallback: injecting JSON instructions into the prompt.")
+
+                # Create a JSON schema description for the prompt
+                # This assumes response_format is like {"type": "json_schema", "json_schema": {...}}
+                schema_description = "Please provide a response in a JSON format enclosed in a ```json markdown block."
+                if response_format["type"] == "json_schema" and "json_schema" in response_format:
+                    schema_details = response_format['json_schema']
+                    schema_description = (
+                        "Your response MUST be a JSON object enclosed in a ```json markdown block. "
+                        f"The JSON object must follow this schema: {schema_details}. "
+                        "Do not include any other text, reasoning, or explanations outside the markdown block."
+                    )
+
+                # Add instructions to the messages
+                # We can append a new user message or modify the last one.
+                # For simplicity, let's append a new system message with the instructions.
+                if messages and messages[-1]["role"] == "user":
+                    messages[-1]["content"] += f"\n\n--- RESPONSE FORMATTING ---\n{schema_description}"
+                else:
+                    messages.append({"role": "system", "content": schema_description})
+        # --- END NEW ---
 
 
         # --- DEBUGGING ADDITION START ---
@@ -528,6 +567,43 @@ class ModelDispatcher:
 
                 else:
                     logger.warning("Usage information not found in the response object. Cost cannot be calculated.")
+
+                # --- NEW: Handle Fallback JSON Parsing ---
+                if fallback_json_parsing and response.choices and response.choices[0].message.content:
+                    raw_content = response.choices[0].message.content
+                    logger.info("Attempting to parse JSON from fallback response...")
+                    try:
+                        # Sanitize and parse the JSON string from the model's text response
+                        sanitized_content_str = sanitize_json_string(raw_content)
+                        # The actual content of the message should remain a string
+                        # The calling function will handle the parsing.
+                        # We just need to replace the raw content with the sanitized JSON string.
+
+                        original_message = response.choices[0].message
+                        new_message = ChatCompletionMessage(
+                            role=original_message.role,
+                            content=sanitized_content_str, # Replace content with the cleaned JSON string
+                            tool_calls=original_message.tool_calls
+                        )
+
+                        # Create a new Choice object with the updated message
+                        new_choice = Choice(
+                            finish_reason=response.choices[0].finish_reason,
+                            index=response.choices[0].index,
+                            message=new_message,
+                            logprobs=response.choices[0].logprobs
+                        )
+
+                        # Replace the choice in the response object
+                        response.choices[0] = new_choice
+                        logger.info("Successfully sanitized JSON from fallback response and updated the response object.")
+
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(f"Failed to sanitize or parse JSON from fallback response: {e}", exc_info=True)
+                        # If parsing fails, the original raw response will be returned.
+                        # The calling function will likely fail validation, which is the expected outcome
+                        # when a model fails to follow formatting instructions.
+                # --- END NEW ---
                     # Ensure cost is set to 0 if usage is missing
                     model_call_details["cost"] = 0.0
                     # Log cost as 0.000000 when usage is missing
