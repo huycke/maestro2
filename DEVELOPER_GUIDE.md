@@ -4,6 +4,12 @@
 
 *   **Project Goal & Domain:** MAESTRO is a self-hosted, AI-powered research platform for managing complex research tasks in a collaborative, multi-user environment, intended for users like academics, analysts, writers, and developers.
 *   **High-Level Architecture:** The project is a monorepo containing a decoupled frontend and backend. It uses a unified reverse proxy architecture with nginx to serve a FastAPI backend and a React single-page application from a single port, eliminating CORS issues.
+*   **Core Concept: The WRITER Agentic Framework:** MAESTRO employs a team of specialized AI agents that collaborate to perform research. This framework ensures a structured, transparent, and iterative process. The key agents are:
+    *   **Agent Controller:** Manages the overall mission.
+    *   **Planning Agent:** Creates the research plan and report outline.
+    *   **Research Agent:** Gathers information using a RAG pipeline and web searches.
+    *   **Reflection Agent:** Critiques the work of other agents to identify gaps and improve quality.
+    *   **Writing Agent:** Drafts the final report from the curated research notes.
 
 ## 2. Technology Stack & Core Libraries
 
@@ -14,6 +20,9 @@
 *   **Key Frameworks:**
     *   **Backend:** FastAPI
     *   **Frontend:** React, Vite
+*   **Database:**
+    *   **Primary:** PostgreSQL
+    *   **Vector Store:** pgvector extension for PostgreSQL
 *   **State Management:**
     *   Zustand is the exclusive state management solution for the frontend. All global client-side state should be managed through Zustand stores.
 *   **Styling:**
@@ -28,6 +37,9 @@
     ```
     /
     ├── maestro_backend/         # FastAPI backend application
+    │   ├── ai_researcher/       # Core agentic logic and RAG pipeline
+    │   │   ├── agentic_layer/   # Agent definitions, tools, and controller
+    │   │   └── core_rag/        # RAG components (chunking, embedding, etc.)
     │   ├── api/                 # API route definitions
     │   ├── database/            # Database models, migrations, and CRUD operations
     │   ├── services/            # Business logic and services
