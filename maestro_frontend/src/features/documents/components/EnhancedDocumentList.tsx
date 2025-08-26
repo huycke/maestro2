@@ -11,7 +11,8 @@ import {
   Upload,
   Edit,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Folder
 } from 'lucide-react';
 import type { Document } from '../types';
 import { 
@@ -503,6 +504,14 @@ export const EnhancedDocumentList: React.FC<EnhancedDocumentListProps> = ({
                           <span>{formatFileSize(doc.file_size)}</span>
                         )}
                       </div>
+                      {doc.groups && doc.groups.length > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Folder className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">
+                            {doc.groups.map(group => group.name).join(', ')}
+                          </span>
+                        </div>
+                      )}
                       
                       {/* Action buttons - show for all documents that are not actively processing */}
                       {(!doc.processing_status || doc.processing_status === 'completed' || doc.processing_status === 'failed') && (

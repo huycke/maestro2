@@ -339,6 +339,10 @@ class DocumentBase(BaseModel):
 class DocumentCreate(DocumentBase):
     id: str
 
+class DocumentGroupInfo(BaseModel):
+    id: str
+    name: str
+
 class Document(DocumentBase):
     id: str
     user_id: int
@@ -349,6 +353,8 @@ class Document(DocumentBase):
     upload_progress: Optional[int] = None
     file_size: Optional[int] = None
     processing_error: Optional[str] = None
+    groups: Optional[List[DocumentGroupInfo]] = []
+
 
     class Config:
         from_attributes = True
