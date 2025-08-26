@@ -7,6 +7,7 @@ import uuid
 import logging
 import json
 import asyncio
+from fastapi import Request # Forgot to import before
 
 logger = logging.getLogger(__name__)
 

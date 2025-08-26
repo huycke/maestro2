@@ -18,6 +18,7 @@ from typing import Dict, Any, Optional, Callable, List
 from datetime import datetime
 from sqlalchemy.orm import Session
 import time
+from sqlalchemy import text 
 from dataclasses import dataclass
 
 from ai_researcher.core_rag.processor import DocumentProcessor
@@ -105,7 +106,11 @@ class BackgroundDocumentProcessor:
                             self._process_next_document()
 
             except Exception as e:
-                print(f"Error in worker listener loop: {e}", exc_info=True)
+                # Replace the incorrect print statement
+                # print(f"Error in worker listener loop: {e}", exc_info=True)
+
+                # With a proper logger call
+                logging.error(f"Error in worker listener loop: {e}", exc_info=True)
                 print("Falling back to polling mode for 30 seconds.")
                 time.sleep(30)
 
