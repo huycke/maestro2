@@ -483,7 +483,7 @@ def run_research( # Changed to synchronous 'def'
         retriever = Retriever(embedder=embedder, vector_store=vector_store, reranker=reranker)
 
         # Agentic Layer Components
-        model_dispatcher = ModelDispatcher() # Assumes API keys are in env
+        model_dispatcher = ModelDispatcher({}) # Assumes API keys are in env
         query_preparer = QueryPreparer(model_dispatcher)
         query_strategist = QueryStrategist(model_dispatcher)
         tool_registry = ToolRegistry()

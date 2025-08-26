@@ -10,7 +10,6 @@ from ai_researcher.agentic_layer.model_dispatcher import ModelDispatcher
 from ai_researcher.agentic_layer.schemas.planning import ReportSection
 # Import the updated schema components
 from ai_researcher.agentic_layer.schemas.reflection import ReflectionOutput, SuggestedSubsectionTopic, OutlineModification
-from ai_researcher.agentic_layer.context_manager import MissionContext
 from ai_researcher.agentic_layer.schemas.notes import Note
 from ai_researcher.agentic_layer.schemas.goal import GoalEntry
 from ai_researcher.agentic_layer.schemas.thought import ThoughtEntry
@@ -71,7 +70,7 @@ class ReflectionAgent(BaseAgent):
 
     def _prepare_reflection_prompt(
         self,
-        mission_context: MissionContext, # Still needed for overall goal and outline structure
+        mission_context: 'MissionContext', # Still needed for overall goal and outline structure
         section_id: str,
         section_title: str, # Added
         section_goal: str,  # Added (was description)
@@ -202,7 +201,7 @@ Provide ONLY a single JSON object conforming EXACTLY to the ReflectionOutput sch
 
     async def run( # <-- Make method async
         self,
-        mission_context: MissionContext,
+        mission_context: 'MissionContext',
         section_id: str,
         section_title: str, # Added
         section_goal: str,  # Added

@@ -1133,10 +1133,10 @@ If no relevant sub-questions are identified, return an empty list for "sub_quest
         self,
         filename: str,
         chunks: List[Dict[str, Any]],
-        feedback_callback: Optional[Callable[[Dict[str, Any]], None]] = None, # Type hint already correct, ensuring it stays
-        log_queue: Optional[queue.Queue] = None, # <-- Add log_queue parameter
-        tool_registry_override: Optional[ToolRegistry] = None, # <-- Add override parameter
-        update_callback: Optional[Callable] = None # <-- Add update_callback parameter
+        feedback_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        log_queue: Optional[queue.Queue] = None,
+        tool_registry_override: Optional[ToolRegistry] = None,
+        update_callback: Optional[Callable] = None
     ) -> List[Dict[str, Any]]:
         """
         Reads a document using the provided/default tool registry, finds chunk locations,
@@ -1145,24 +1145,20 @@ If no relevant sub-questions are identified, return an empty list for "sub_quest
         """
         logger.debug(f"Extracting content windows for {filename} from {len(chunks)} chunks.")
         if not chunks: return []
-        
-        # Use metadata from first chunk to read document, passing callback and registry override
-        first_chunk_metadata = chunks[0].get("metadata", {})
+
         full_content_original, read_tool_call, file_read = await self._read_full_document_if_needed(
-            source_info={"source_type": "document", "metadata": first_chunk_metadata},
-            feedback_callback=feedback_callback, # Pass callback down
-            log_queue=log_queue, # <-- Pass log_queue down
-            tool_registry_override=tool_registry_override, # Pass the override
-            update_callback=update_callback # <-- Pass update_callback
+            source_info={"source_type": "document", "metadata": chunks[0].get("metadata", {})},
+            feedback_callback=feedback_callback,
+            log_queue=log_queue,
+            tool_registry_override=tool_registry_override,
+            update_callback=update_callback
         )
 
         if not full_content_original:
             logger.warning(f"Could not read full content for {filename}. Cannot extract windows.")
             return []
 
-        logger.debug(f"Processing full content for {filename} (length: {len(full_content_original)} chars)")
-        logger.debug(f"First 500 chars of content: {repr(full_content_original[:500])}")
-        logger.debug(f"Last 500 chars of content: {repr(full_content_original[-500:])}")
+        # ... (rest of the function up to the loop is fine)
 
         # Track processed chunks and their windows
         processed_chunks: Dict[str, Dict[str, Any]] = {}
@@ -1175,67 +1171,48 @@ If no relevant sub-questions are identified, return an empty list for "sub_quest
             if chunk_id in processed_chunks:
                 continue
 
-            chunk_text = chunk.get("text", "").strip()
-            if not chunk_text:
-                logger.warning(f"Chunk {chunk_id} has no text content. Skipping.")
-                continue
+            # ##################################################################
+            # ############ START OF THE FIX: USE PARAGRAPH INDICES #############
+            # ##################################################################
 
             try:
-                # Simplified paragraph splitting
-                logger.debug(f"Full content for paragraph splitting: {repr(full_content_original)}")
-                paragraphs = [p.strip() for p in self._paragraph_split_pattern.split(full_content_original) if p.strip()]
-                
-                logger.debug(f"Document has {len(paragraphs)} paragraphs")
-                logger.debug("First few paragraphs:")
-                for i, p in enumerate(paragraphs[:3]):
-                    logger.debug(f"  Paragraph {i}: {repr(p[:100])}")
-                
-                # Get indices from metadata
-                chunk_start_idx = chunk.get("metadata", {}).get("start_paragraph_index")
-                chunk_end_idx = chunk.get("metadata", {}).get("end_paragraph_index")
-                
-                if chunk_start_idx is None or chunk_end_idx is None:
-                    logger.warning(f"Chunk {chunk_id} missing paragraph indices in metadata. Skipping.")
-                    continue
-                
-                # Validate indices
-                if not (0 <= chunk_start_idx < len(paragraphs) and 0 <= chunk_end_idx < len(paragraphs)):
-                    logger.warning(f"Chunk {chunk_id} has invalid paragraph indices: {chunk_start_idx}-{chunk_end_idx}. Document has {len(paragraphs)} paragraphs.")
-                    continue
-                
-                chunk_text_to_find = chunk.get("text", "").strip()
-                chunk_start = full_content_original.find(chunk_text_to_find)
-                if chunk_start == -1:
-                    logger.warning(f"Could not find chunk text in full content: {chunk_text_to_find}")
-                    continue
-                chunk_end = chunk_start + len(chunk_text_to_find)
+                # 1. Split the document into paragraphs more reliably (on two or more newlines)
+                paragraphs = re.split(r'\n{2,}', full_content_original)
+                paragraphs = [p.strip() for p in paragraphs if p.strip()]
 
-                class TextMatch:
-                    def __init__(self, start, end):
-                        self.start_pos = start
-                        self.end_pos = end
-                    def start(self): return self.start_pos
-                    def end(self): return self.end_pos
-                
-                match = TextMatch(chunk_start, chunk_end)
+                # 2. Get the paragraph indices from the chunk's metadata
+                chunk_meta = chunk.get("metadata", {})
+                start_p_index = chunk_meta.get("start_paragraph_index")
+                end_p_index = chunk_meta.get("end_paragraph_index")
 
-                # Calculate window boundaries centered on chunk
-                chunk_start = match.start()
-                chunk_end = match.end()
+                if start_p_index is None or end_p_index is None:
+                    logger.warning(f"Chunk {chunk_id} missing paragraph indices. Skipping.")
+                    continue
+
+                # 3. Find the character position of the chunk's starting paragraph
+                # We build a temporary string of paragraphs up to the start index to find its position
+                # This is more robust than searching for the text directly.
+                preceding_text = "\n\n".join(paragraphs[:start_p_index])
+                # Add 2 characters for the "\n\n" joiner if there was preceding text
+                chunk_start = len(preceding_text) + 2 if preceding_text else 0
+
+                # 4. Reconstruct the chunk's full text to find its end position
+                chunk_text_from_paras = "\n\n".join(paragraphs[start_p_index : end_p_index + 1])
+                chunk_end = chunk_start + len(chunk_text_from_paras)
+
+                logger.info(f"CHUNK_DEBUG: Chunk {chunk_id}: doc_len={len(full_content_original)}, num_paras={len(paragraphs)}")
+                logger.info(f"CHUNK_DEBUG: Chunk {chunk_id}: p_indices={start_p_index}-{end_p_index}, char_indices=[{chunk_start}:{chunk_end}]")
+
+                # --- The rest of the logic remains the same ---
                 chunk_length = chunk_end - chunk_start
                 chunk_midpoint = chunk_start + (chunk_length // 2)
-                logger.debug(f"Chunk details: start={chunk_start}, end={chunk_end}, length={chunk_length}, midpoint={chunk_midpoint}")
-                
-                # Calculate ideal window boundaries
+
                 half_window = window_size // 2
                 window_start = max(0, chunk_midpoint - half_window)
                 window_end = min(len(full_content_original), window_start + window_size)
-                logger.debug(f"Initial window: start={window_start}, end={window_end}, size={window_size}")
                 
-                # Adjust start if end was clamped
                 if window_end < window_start + window_size:
                     window_start = max(0, window_end - window_size)
-                    logger.debug(f"Adjusted window start: {window_start}")
 
                 processed_chunks[chunk_id] = {
                     "start": window_start,
