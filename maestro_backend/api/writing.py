@@ -20,6 +20,7 @@ from services.chat_title_service import ChatTitleService
 from ai_researcher.agentic_layer.controller.writing_controller import WritingController
 from ai_researcher.agentic_layer.agents.simplified_writing_agent import SimplifiedWritingAgent
 from ai_researcher.user_context import set_current_user
+from .dependencies import get_writing_controller
 
 router = APIRouter(prefix="/api/writing", tags=["writing"])
 
@@ -810,6 +811,7 @@ async def update_reference(
 
 @router.post("/enhanced-chat-stream")
 async def enhanced_writing_chat_stream(
+    fastapi_request: Request,
     request: schemas.EnhancedWritingChatRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -855,6 +857,7 @@ async def enhanced_writing_chat_stream(
     # Add the actual processing to background tasks
     background_tasks.add_task(
         process_writing_chat_in_background,
+        app=fastapi_request.app,
         task_id=task_id,
         request=request,
         draft_id=draft.id,
@@ -875,6 +878,7 @@ async def enhanced_writing_chat_stream(
     )
 
 async def process_writing_chat_in_background(
+    app,
     task_id: str,
     request: schemas.EnhancedWritingChatRequest,
     draft_id: str,
@@ -914,9 +918,21 @@ async def process_writing_chat_in_background(
         if use_web_search is None:
             use_web_search = writing_session.use_web_search
         
+        # Get the singleton instances from the app state
+        text_embedder = app.state.text_embedder
+        text_reranker = app.state.text_reranker
+
         # Get the WritingController
-        writing_controller = await WritingController.get_instance(current_user)
-        agent = SimplifiedWritingAgent(model_dispatcher=writing_controller.model_dispatcher)
+        writing_controller = WritingController(
+            user=current_user,
+            text_embedder=text_embedder,
+            text_reranker=text_reranker,
+        )
+        agent = SimplifiedWritingAgent(
+            model_dispatcher=writing_controller.model_dispatcher,
+            text_embedder=text_embedder,
+            text_reranker=text_reranker,
+        )
         
         # Get chat history
         chat_history = db.query(models.Message).filter(
@@ -1045,7 +1061,8 @@ async def process_writing_chat_in_background(
 async def enhanced_writing_chat(
     request: schemas.EnhancedWritingChatRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user_from_cookie)
+    current_user: models.User = Depends(get_current_user_from_cookie),
+    writing_controller: WritingController = Depends(get_writing_controller),
 ):
     """
     Enhanced chat endpoint for the writing view with document group and web search support.
@@ -1106,11 +1123,12 @@ async def enhanced_writing_chat(
     # CRITICAL: Set the user context so ModelDispatcher can access user settings
     set_current_user(current_user)
     
-    # Get the user-specific WritingController
-    writing_controller = await WritingController.get_instance(current_user)
-
     # Initialize the simplified agent with the user-specific model dispatcher
-    agent = SimplifiedWritingAgent(model_dispatcher=writing_controller.model_dispatcher)
+    agent = SimplifiedWritingAgent(
+        model_dispatcher=writing_controller.model_dispatcher,
+        text_embedder=writing_controller.text_embedder,
+        text_reranker=writing_controller.text_reranker,
+    )
 
     # Get chat history
     chat_history = db.query(models.Message).filter(

@@ -411,7 +411,8 @@ PROVIDER_CONFIG = {
         "fast_model": OPENROUTER_FAST_MODEL,
         "mid_model": OPENROUTER_MID_MODEL,
         "intelligent_model": OPENROUTER_INTELLIGENT_MODEL,
-        "verifier_model": OPENROUTER_VERIFIER_MODEL, # Use specific OpenRouter verifier model
+        "verifier_model": OPENROUTER_VERIFIER_MODEL,
+        "supported_response_formats": ["json_schema"],
         # Add aliases for backward compatibility
         "light_model": OPENROUTER_FAST_MODEL,
         "heavy_model": OPENROUTER_MID_MODEL,
@@ -423,7 +424,8 @@ PROVIDER_CONFIG = {
         "fast_model": LOCAL_LLM_FAST_MODEL,
         "mid_model": LOCAL_LLM_MID_MODEL,
         "intelligent_model": LOCAL_LLM_INTELLIGENT_MODEL,
-        "verifier_model": LOCAL_LLM_VERIFIER_MODEL, # Use specific local verifier model
+        "verifier_model": LOCAL_LLM_VERIFIER_MODEL,
+        "supported_response_formats": [], # Assume no special formats by default
         # Add aliases for backward compatibility
         "light_model": LOCAL_LLM_FAST_MODEL,
         "heavy_model": LOCAL_LLM_MID_MODEL,
@@ -438,6 +440,7 @@ PROVIDER_CONFIG = {
         "mid_model": "custom-mid-model", 
         "intelligent_model": "custom-intelligent-model",
         "verifier_model": "custom-verifier-model",
+        "supported_response_formats": [],
         # Add aliases for backward compatibility
         "light_model": "custom-fast-model",
         "heavy_model": "custom-mid-model",

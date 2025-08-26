@@ -89,7 +89,7 @@ class ResearchAgent(BaseAgent):
         # self.context_manager = context_manager
         
         # Initialize paragraph split pattern for content windows
-        self._paragraph_split_pattern = re.compile(r'(\n\s*\n+)')
+        self._paragraph_split_pattern = re.compile(r'(\n+)')
 
     def _default_system_prompt(self) -> str:
         """Generates the default system prompt for the Research Agent."""
@@ -1181,34 +1181,9 @@ If no relevant sub-questions are identified, return an empty list for "sub_quest
                 continue
 
             try:
-                # Split into paragraphs exactly like the chunker
-                parts = self._paragraph_split_pattern.split(full_content_original)
-                paragraphs = []
-                current_paragraph = ""
-                
-                logger.debug(f"Initial split resulted in {len(parts)} parts for {filename}")
-                logger.debug("First few parts:")
-                for i, part in enumerate(parts[:5]):
-                    logger.debug(f"  Part {i}: {repr(part[:100])}")
-                
-                for part in parts:
-                    if part:  # Ignore empty strings from split
-                        if self._paragraph_split_pattern.match(part):
-                            # If it's a separator, append it to current paragraph and start new one
-                            if current_paragraph:  # Avoid empty paragraphs
-                                current_paragraph += part  # Add separator to current paragraph
-                                paragraphs.append(current_paragraph.strip())  # Strip when adding
-                                logger.debug(f"Added paragraph {len(paragraphs)}: {repr(current_paragraph[:100])}")
-                            current_paragraph = ""  # Reset for next paragraph
-                        else:
-                            # If it's text, append to current paragraph
-                            current_paragraph += part
-                            logger.debug(f"Building paragraph: {repr(current_paragraph[:100])}")
-                
-                # Add final paragraph if not empty
-                if current_paragraph.strip():  # Check stripped version
-                    paragraphs.append(current_paragraph.strip())  # Strip when adding
-                    logger.debug(f"Added final paragraph {len(paragraphs)}: {repr(current_paragraph[:100])}")
+                # Simplified paragraph splitting
+                logger.debug(f"Full content for paragraph splitting: {repr(full_content_original)}")
+                paragraphs = [p.strip() for p in self._paragraph_split_pattern.split(full_content_original) if p.strip()]
                 
                 logger.debug(f"Document has {len(paragraphs)} paragraphs")
                 logger.debug("First few paragraphs:")
@@ -1228,16 +1203,13 @@ If no relevant sub-questions are identified, return an empty list for "sub_quest
                     logger.warning(f"Chunk {chunk_id} has invalid paragraph indices: {chunk_start_idx}-{chunk_end_idx}. Document has {len(paragraphs)} paragraphs.")
                     continue
                 
-                # Get paragraphs for this chunk
-                chunk_paragraphs = paragraphs[chunk_start_idx:chunk_end_idx + 1]
-                chunk_text = "".join(chunk_paragraphs)
-                
-                # Calculate character positions
-                full_content_so_far = "".join(paragraphs[:chunk_start_idx])
-                chunk_start = len(full_content_so_far)
-                chunk_end = chunk_start + len(chunk_text)
-                
-                # Create a match object with the found positions
+                chunk_text_to_find = chunk.get("text", "").strip()
+                chunk_start = full_content_original.find(chunk_text_to_find)
+                if chunk_start == -1:
+                    logger.warning(f"Could not find chunk text in full content: {chunk_text_to_find}")
+                    continue
+                chunk_end = chunk_start + len(chunk_text_to_find)
+
                 class TextMatch:
                     def __init__(self, start, end):
                         self.start_pos = start
@@ -1252,15 +1224,18 @@ If no relevant sub-questions are identified, return an empty list for "sub_quest
                 chunk_end = match.end()
                 chunk_length = chunk_end - chunk_start
                 chunk_midpoint = chunk_start + (chunk_length // 2)
+                logger.debug(f"Chunk details: start={chunk_start}, end={chunk_end}, length={chunk_length}, midpoint={chunk_midpoint}")
                 
                 # Calculate ideal window boundaries
                 half_window = window_size // 2
                 window_start = max(0, chunk_midpoint - half_window)
                 window_end = min(len(full_content_original), window_start + window_size)
+                logger.debug(f"Initial window: start={window_start}, end={window_end}, size={window_size}")
                 
                 # Adjust start if end was clamped
                 if window_end < window_start + window_size:
                     window_start = max(0, window_end - window_size)
+                    logger.debug(f"Adjusted window start: {window_start}")
 
                 processed_chunks[chunk_id] = {
                     "start": window_start,

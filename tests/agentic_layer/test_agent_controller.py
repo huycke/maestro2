@@ -61,8 +61,7 @@ def create_mock_note(note_id: str, content_len: int) -> Note:
         source_type="document",
         source_id=f"doc_{note_id}",
         source_metadata={},
-        potential_sections=["test"],
-        timestamp="2024-01-01T12:00:00"
+            potential_sections=["test"]
     )
 
 # Helper to create a mock PlanningAgent response
@@ -70,8 +69,7 @@ def create_mock_plan_response(batch_num: int) -> SimplifiedPlanResponse:
     """Creates a mock SimplifiedPlanResponse for testing."""
     return SimplifiedPlanResponse(
         mission_goal="Test Goal",
-        report_outline=[ReportSection(section_id=f"sec_{batch_num}", title=f"Section {batch_num}", description=f"Desc {batch_num}")],
-        steps=[]
+            report_outline=[ReportSection(section_id=f"sec_{batch_num}", title=f"Section {batch_num}", description=f"Desc {batch_num}")]
     )
 
 # --- Tests for _generate_preliminary_outline Batching ---
@@ -244,8 +242,7 @@ def _create_mock_citation_note(note_id: str, doc_id: str, chunk_id: int, title: 
             "publication_year": year,
             "authors": str(authors) # Store as string list representation, as seen in example
         },
-        potential_sections=["test_section"],
-        timestamp="2024-01-01T12:00:00"
+            potential_sections=["test_section"]
     )
 
 def setup_mock_context_for_citations(mock_cm: MagicMock, mission_id: str, notes: List[Note], report_content: Dict[str, str], plan: Optional[SimplifiedPlan] = None):
@@ -257,8 +254,7 @@ def setup_mock_context_for_citations(mock_cm: MagicMock, mission_id: str, notes:
             report_outline=[
                 ReportSection(section_id=sec_id, title=f"Section {sec_id.upper()}", description=f"Desc {sec_id}")
                 for sec_id in report_content.keys()
-            ],
-            steps=[]
+                ]
         )
 
     mock_mission = MagicMock(spec=MissionContext)
@@ -330,7 +326,7 @@ def test_no_placeholders(agent_controller, mock_context_manager):
         "intro": "This text has no placeholders.",
     }
     # Create a simple plan for context
-    plan = SimplifiedPlan(mission_goal="G", report_outline=[ReportSection(section_id="intro", title="Intro", description="D")], steps=[])
+    plan = SimplifiedPlan(mission_goal="G", report_outline=[ReportSection(section_id="intro", title="Intro", description="D")])
     setup_mock_context_for_citations(mock_context_manager, mission_id, notes, report_content, plan)
 
     success = agent_controller._process_citations(mission_id)
@@ -393,12 +389,14 @@ def test_placeholder_for_unknown_doc(agent_controller, mock_context_manager):
 
 def test_missing_context_elements(agent_controller, mock_context_manager):
     """Test failure modes when context, plan, or content is missing."""
+    from ai_researcher.agentic_layer.controller.report_generator import ReportGenerator
     mission_id = "test_missing_ctx"
+    report_generator = ReportGenerator(agent_controller)
 
     # Case 1: Missing context
     mock_context_manager.reset_mock() # Reset mocks for clean state
     mock_context_manager.get_mission_context.return_value = None
-    success = agent_controller._process_citations(mission_id)
+    success = report_generator.process_citations(mission_id)
     assert success is False
     mock_context_manager.store_final_report.assert_not_called()
 
@@ -408,7 +406,7 @@ def test_missing_context_elements(agent_controller, mock_context_manager):
     mock_mission_no_plan.plan = None
     mock_mission_no_plan.report_content = {"intro": "Test"}
     mock_context_manager.get_mission_context.return_value = mock_mission_no_plan
-    success = agent_controller._process_citations(mission_id)
+    success = report_generator.process_citations(mission_id)
     assert success is False
     mock_context_manager.store_final_report.assert_not_called()
 
@@ -418,7 +416,7 @@ def test_missing_context_elements(agent_controller, mock_context_manager):
     mock_mission_no_content.plan = SimplifiedPlan(mission_goal="G", report_outline=[], steps=[])
     mock_mission_no_content.report_content = None
     mock_context_manager.get_mission_context.return_value = mock_mission_no_content
-    success = agent_controller._process_citations(mission_id)
+    success = report_generator.process_citations(mission_id)
     assert success is False
     mock_context_manager.store_final_report.assert_not_called()
 

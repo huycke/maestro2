@@ -90,31 +90,7 @@ class ResearchManager:
         logger.info(f"Initial Research Phase using tool selection: {tool_selection}")
         
         # Create filtered tool registry based on selection
-        filtered_tool_registry = ToolRegistry()
-        
-        # Register only enabled tools
-        if tool_selection.get('local_rag', True):
-            doc_search_tool = self.controller.tool_registry.get_tool("document_search")
-            if doc_search_tool: 
-                filtered_tool_registry.register_tool(doc_search_tool)
-                logger.info("Document search tool registered for initial research phase")
-                
-        if tool_selection.get('web_search', True):
-            web_search_tool = self.controller.tool_registry.get_tool("web_search")
-            if web_search_tool:
-                filtered_tool_registry.register_tool(web_search_tool)
-                logger.info("Web search tool registered for initial research phase")
-            # Also register fetch_web_page_content if web search is enabled
-            web_fetcher_tool = self.controller.tool_registry.get_tool("fetch_web_page_content")
-            if web_fetcher_tool:
-                filtered_tool_registry.register_tool(web_fetcher_tool)
-                logger.info("Web page fetcher tool registered for initial research phase")
-
-        # Always include calculator and file reader tools
-        calc_tool = self.controller.tool_registry.get_tool("calculator")
-        if calc_tool: filtered_tool_registry.register_tool(calc_tool)
-        file_reader_tool = self.controller.tool_registry.get_tool("read_full_document")
-        if file_reader_tool: filtered_tool_registry.register_tool(file_reader_tool)
+        filtered_tool_registry = self.controller.tool_registry.create_filtered_registry(tool_selection)
         
         logger.info(f"Initial Research Phase using filtered tools: {list(filtered_tool_registry._tools.keys())}")
 
@@ -830,24 +806,7 @@ Instructions:
 
             # Get Tool Selection and Filter Tools
             tool_selection = mission_context.metadata.get("tool_selection", {'local_rag': True, 'web_search': True})
-            filtered_tool_registry = ToolRegistry()
-            
-            # Register only enabled tools
-            if tool_selection.get('local_rag', True):
-                doc_search_tool = self.controller.tool_registry.get_tool("document_search")
-                if doc_search_tool: filtered_tool_registry.register_tool(doc_search_tool)
-            if tool_selection.get('web_search', True):
-                web_search_tool = self.controller.tool_registry.get_tool("web_search")
-                if web_search_tool: filtered_tool_registry.register_tool(web_search_tool)
-                # Also include web page fetcher if web search is enabled
-                web_fetcher_tool = self.controller.tool_registry.get_tool("fetch_web_page_content")
-                if web_fetcher_tool: filtered_tool_registry.register_tool(web_fetcher_tool)
-
-            # Always include non-research tools
-            calc_tool = self.controller.tool_registry.get_tool("calculator")
-            if calc_tool: filtered_tool_registry.register_tool(calc_tool)
-            file_reader_tool = self.controller.tool_registry.get_tool("read_full_document")
-            if file_reader_tool: filtered_tool_registry.register_tool(file_reader_tool)
+            filtered_tool_registry = self.controller.tool_registry.create_filtered_registry(tool_selection)
             
             logger.info(f"Round {round_num}: Using filtered tools based on selection {tool_selection}. Available: {list(filtered_tool_registry._tools.keys())}")
 

@@ -21,6 +21,11 @@ app = FastAPI(
     version="2.0.0-alpha"
 )
 
+@app.get("/api/health")
+def health_check():
+    """Simple health check endpoint."""
+    return {"status": "healthy"}
+
 # Configure CORS with environment variables
 def get_cors_origins():
     """Get CORS allowed origins from environment variables."""
@@ -133,7 +138,22 @@ async def startup_event():
     # Create a configurable thread pool
     max_workers = int(os.getenv("MAX_WORKER_THREADS", "10"))
     app.state.thread_pool = ThreadPoolExecutor(max_workers=max_workers)
-    
+
+    # Initialize singleton components for dependency injection
+    try:
+        from ai_researcher.agentic_layer.tool_registry import ToolRegistry
+        from ai_researcher.core_rag.embedder import TextEmbedder
+        from ai_researcher.core_rag.reranker import TextReranker
+
+        app.state.tool_registry = ToolRegistry()
+        app.state.text_embedder = TextEmbedder()
+        app.state.text_reranker = TextReranker()
+        logger.info("Core components (ToolRegistry, TextEmbedder, TextReranker) initialized.")
+    except Exception as e:
+        logger.error(f"Failed to initialize core components: {e}", exc_info=True)
+        # Depending on the severity, you might want to exit the application
+        # For now, we'll log the error and continue, but some endpoints might fail.
+
     # Create first user for development if no users exist
     db = SessionLocal()
     try:
@@ -198,7 +218,7 @@ async def startup_event():
     # Initialize AI research components
     try:
         from api.missions import initialize_ai_components
-        success = initialize_ai_components()
+        success = initialize_ai_components(app)
         if not success:
             logger.error("Failed to initialize AI research components")
     except Exception as e:
@@ -257,6 +277,3 @@ def read_root():
         "docs": "/docs"
     }
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}

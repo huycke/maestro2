@@ -212,7 +212,7 @@ CRITICAL: Do NOT include formatting like "**Title:**", "Title:", markdown, or an
         
         if source_type == "document":
             # For documents, source_id is the full UUID
-            doc_id = source_id_full
+            doc_id = source_id_full.split('_')[0]
         elif source_type == "web":
             # Generate a stable ID for web sources
             url_str = str(source_id_full)

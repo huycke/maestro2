@@ -1,3 +1,6 @@
+# This is a standalone background service and runs in a separate process.
+# It intentionally instantiates its own components and does not use the main
+# FastAPI app's dependency injection.
 """
 Background document processor service for handling asynchronous document processing
 with real-time progress updates via WebSocket.

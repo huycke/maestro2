@@ -294,7 +294,7 @@ async def transform_note_for_frontend(note) -> dict:
 context_manager: Optional[ContextManager] = None
 agent_controller: Optional[AgentController] = None
 
-def initialize_ai_components():
+def initialize_ai_components(app: "FastAPI"):
     """Initialize the AI research components."""
     global context_manager, agent_controller
     
@@ -304,16 +304,15 @@ def initialize_ai_components():
         # Initialize ModelDispatcher with empty user settings for global instance
         # Individual missions will create their own dispatchers with user-specific settings
         model_dispatcher = ModelDispatcher({})
-        tool_registry = ToolRegistry()
         
+        # Get singleton instances from app state
+        tool_registry = app.state.tool_registry
+        embedder = app.state.text_embedder
+        reranker = app.state.text_reranker
+
         # Initialize RAG components
-        from ai_researcher.core_rag.embedder import TextEmbedder
         from ai_researcher.core_rag.pgvector_store import PGVectorStore as VectorStore
         
-        # Use cached model instances to avoid repeated initialization
-        from ai_researcher.core_rag.model_cache import model_cache
-        embedder = model_cache.get_embedder()
-        reranker = model_cache.get_reranker()
         # PGVectorStore uses PostgreSQL database connection, no directory needed
         vector_store = VectorStore()
         retriever = Retriever(embedder=embedder, vector_store=vector_store)
