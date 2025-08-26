@@ -15,7 +15,7 @@ from ai_researcher.agentic_layer.tools.web_search_tool import WebSearchTool
 from ai_researcher.agentic_layer.tools.document_search import DocumentSearchTool, DocumentSearchInput
 # Import RAG components for patching
 from ai_researcher.core_rag.embedder import TextEmbedder
-from ai_researcher.core_rag.vector_store import VectorStore
+from ai_researcher.core_rag.pgvector_store import PGVectorStore as VectorStore
 from ai_researcher.core_rag.reranker import TextReranker
 from ai_researcher.core_rag.retriever import Retriever
 

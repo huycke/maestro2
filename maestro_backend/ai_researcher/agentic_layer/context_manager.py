@@ -10,7 +10,6 @@ import time
 import json 
 import asyncio
 from sqlalchemy.orm import Session
-from database import crud, models
 
 # Use absolute imports starting from the top-level package 'ai_researcher'
 from ai_researcher.config import get_current_time
@@ -187,6 +186,7 @@ class ContextManager:
 
     def _load_all_missions_from_db(self):
         """Loads all existing missions from the database into the in-memory cache on startup."""
+        from database import crud
         db = self.db_session_factory()
         try:
             all_db_missions = crud.get_all_missions(db)
@@ -259,6 +259,7 @@ class ContextManager:
     def start_mission(self, user_request: str, chat_id: str) -> MissionContext:
         """Creates and stores context for a new mission."""
         """Creates a new mission, stores it in the database, and adds it to the in-memory cache."""
+        from database import crud
         mission = MissionContext(user_request=user_request)
         mission.metadata["chat_id"] = chat_id
 
@@ -297,6 +298,7 @@ class ContextManager:
 
     def update_mission_status(self, mission_id: str, status: MissionStatus, error_info: Optional[str] = None):
         """Updates the status of a mission in memory and in the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.status = status
@@ -317,6 +319,7 @@ class ContextManager:
     
     def update_execution_phase(self, mission_id: str, phase: str, checkpoint_data: Optional[Dict[str, Any]] = None):
         """Updates the current execution phase and optionally saves checkpoint data."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.execution_phase = phase
@@ -336,6 +339,7 @@ class ContextManager:
     
     def mark_phase_completed(self, mission_id: str, phase: str):
         """Marks a phase as completed."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             if phase not in mission.completed_phases:
@@ -380,6 +384,7 @@ class ContextManager:
 
     def store_plan(self, mission_id: str, plan: SimplifiedPlan):
         """Stores the generated plan for a mission in memory and persists the context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.plan = plan
@@ -410,6 +415,7 @@ class ContextManager:
 
     def store_step_result(self, mission_id: str, result: ResearchResultResponse):
         """Stores the result of a plan step and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             step_id = result.step_id
@@ -439,6 +445,7 @@ class ContextManager:
 
     def store_report_section(self, mission_id: str, section_id: str, content: str):
         """Stores report section content and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.report_content[section_id] = content
@@ -466,6 +473,7 @@ class ContextManager:
 
     def store_final_report(self, mission_id: str, report_text: str):
         """Stores the final report, updates status, and persists the context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.final_report = report_text
@@ -504,6 +512,7 @@ class ContextManager:
 
     def add_note(self, mission_id: str, note: Note):
         """Adds a single note and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.notes.append(note)
@@ -550,6 +559,7 @@ class ContextManager:
 
     def add_notes(self, mission_id: str, notes: List[Note]):
         """Adds a list of notes and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.notes.extend(notes)
@@ -610,6 +620,7 @@ class ContextManager:
 
     def remove_notes(self, mission_id: str, note_ids_to_remove: List[str]):
         """Removes notes and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             initial_count = len(mission.notes)
@@ -637,6 +648,7 @@ class ContextManager:
 
     def update_scratchpad(self, mission_id: str, scratchpad_content: Optional[str]):
         """Updates the agent scratchpad and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             if mission.agent_scratchpad != scratchpad_content:  # Only update if changed
@@ -681,6 +693,7 @@ class ContextManager:
             
     def update_mission_metadata(self, mission_id: str, metadata_update: Dict[str, Any]):
         """Updates mission metadata and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             mission.metadata.update(metadata_update)
@@ -718,6 +731,7 @@ class ContextManager:
         update_callback: Optional[Callable[[queue.Queue, ExecutionLogEntry], None]] = None # <-- Modify callback signature
     ):
         """Logs a step in the mission execution process and optionally calls a callback with the queue."""
+        from database import crud, models
         mission = self.get_mission_context(mission_id)
         if mission:
             # --- Make detailed fields serializable BEFORE creating ExecutionLogEntry ---
@@ -879,6 +893,7 @@ class ContextManager:
 
     def add_goal(self, mission_id: str, text: str, source_agent: Optional[str] = None) -> Optional[str]:
         """Adds a new goal and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if mission:
             try:
@@ -916,6 +931,7 @@ class ContextManager:
 
     def update_goal_status(self, mission_id: str, goal_id: str, status: Literal["active", "addressed", "obsolete"]) -> bool:
         """Updates a goal's status and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if not mission:
             logger.error(f"Cannot update goal status for non-existent mission ID: {mission_id}")
@@ -952,6 +968,7 @@ class ContextManager:
 
     def edit_goal_text(self, mission_id: str, goal_id: str, new_text: str) -> bool:
         """Updates a goal's text and persists the updated context to the database."""
+        from database import crud
         mission = self.get_mission_context(mission_id)
         if not mission:
             logger.error(f"Cannot update goal text for non-existent mission ID: {mission_id}")

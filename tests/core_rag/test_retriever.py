@@ -13,7 +13,7 @@ print(f"Added to sys.path for testing: {project_root}")
 
 # Import the components to be tested/mocked
 from ai_researcher.core_rag.embedder import TextEmbedder
-from ai_researcher.core_rag.vector_store import VectorStore
+from ai_researcher.core_rag.pgvector_store import PGVectorStore as VectorStore
 from ai_researcher.core_rag.retriever import Retriever
 # from ai_researcher.core_rag.reranker import TextReranker # Import if testing reranker integration
 

@@ -48,7 +48,7 @@ class TestWebSearchTool(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         """Instantiate the tool and start patches."""
-        self.search_tool = WebSearchTool(searxng_base_url=MOCK_SEARXNG_URL)
+        self.search_tool = WebSearchTool()
         # Start patcher for httpx.AsyncClient.get - use AsyncMock as it's an async method
         self.patcher = patch('httpx.AsyncClient.get', new_callable=AsyncMock)
         self.mock_async_get = self.patcher.start()
@@ -66,7 +66,7 @@ class TestWebSearchTool(unittest.IsolatedAsyncioTestCase):
         self.mock_async_get.return_value = mock_response
 
         # Execute the tool (await the async call)
-        results_dict = await self.search_tool.execute(query=MOCK_QUERY, num_results=MOCK_NUM_RESULTS)
+        results_dict = await self.search_tool.execute(query=MOCK_QUERY, max_results=MOCK_NUM_RESULTS)
 
         # Assertions (Corrected Indentation)
         self.mock_async_get.assert_awaited_once() # Check if the async mock was awaited
@@ -98,7 +98,7 @@ class TestWebSearchTool(unittest.IsolatedAsyncioTestCase):
         self.mock_async_get.return_value = mock_response
 
         # Execute the tool (await the async call)
-        results_dict = await self.search_tool.execute(query=MOCK_QUERY, num_results=MOCK_NUM_RESULTS)
+        results_dict = await self.search_tool.execute(query=MOCK_QUERY, max_results=MOCK_NUM_RESULTS)
 
         self.assertIsInstance(results_dict, dict)
         self.assertNotIn("error", results_dict)
@@ -118,7 +118,7 @@ class TestWebSearchTool(unittest.IsolatedAsyncioTestCase):
         self.mock_async_get.return_value = mock_response
 
         # Execute the tool (await the async call)
-        results_dict = await self.search_tool.execute(query=MOCK_QUERY, num_results=MOCK_NUM_RESULTS)
+        results_dict = await self.search_tool.execute(query=MOCK_QUERY, max_results=MOCK_NUM_RESULTS)
 
         self.assertIsInstance(results_dict, dict)
         self.assertIn("error", results_dict)
@@ -132,7 +132,7 @@ class TestWebSearchTool(unittest.IsolatedAsyncioTestCase):
         self.mock_async_get.side_effect = httpx.RequestError("Connection Timeout", request=MagicMock())
 
         # Execute the tool (await the async call)
-        results_dict = await self.search_tool.execute(query=MOCK_QUERY, num_results=MOCK_NUM_RESULTS)
+        results_dict = await self.search_tool.execute(query=MOCK_QUERY, max_results=MOCK_NUM_RESULTS)
 
         self.assertIsInstance(results_dict, dict)
         self.assertIn("error", results_dict)
@@ -140,10 +140,6 @@ class TestWebSearchTool(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(f"SearXNG search request failed for query '{MOCK_QUERY}'" in results_dict["error"])
         self.assertTrue("Connection Timeout" in results_dict["error"]) # Check original exception message
 
-    def test_empty_url_init(self):
-        """Test if tool initialization fails with an empty URL."""
-        with self.assertRaises(ValueError):
-            WebSearchTool(searxng_base_url="") # Test with empty string
 
 # Note: Running this file directly with `python test_web_search_tool.py` might not work
 # correctly for async tests. Use `pytest` which handles `unittest.IsolatedAsyncioTestCase`.
