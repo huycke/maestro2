@@ -73,7 +73,13 @@ class UnifiedDocumentService:
                 d.created_at,
                 d.updated_at,
                 d.processing_error,
-                d.upload_progress
+                d.upload_progress,
+                (
+                    SELECT json_agg(json_build_object('id', dg.id, 'name', dg.name))
+                    FROM document_groups dg
+                    JOIN document_group_association dga ON dg.id = dga.document_group_id
+                    WHERE dga.document_id = d.id
+                ) as groups
             FROM documents d
             WHERE d.user_id = :user_id
         """
@@ -183,7 +189,8 @@ class UnifiedDocumentService:
                 'file_size': row.file_size,
                 'created_at': row.created_at.isoformat() if row.created_at else None,
                 'updated_at': row.updated_at.isoformat() if row.updated_at else None,
-                'metadata_': metadata  # Include full metadata object
+                'metadata_': metadata,  # Include full metadata object
+                'groups': row.groups or []
             }
             documents.append(doc)
         

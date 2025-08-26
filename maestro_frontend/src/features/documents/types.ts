@@ -12,8 +12,13 @@ export interface DocumentGroupWithCount extends DocumentGroup {
   document_count: number;
 }
 
-export interface Document {
+export interface DocumentGroupInfo {
   id: string;
+  name: string;
+}
+
+export interface Document {
+  id:string;
   original_filename: string;
   user_id: number;
   created_at: string;
@@ -35,6 +40,7 @@ export interface Document {
     chunk_id?: number;
     [key: string]: any;
   };
+  groups?: DocumentGroupInfo[];
 }
 
 export interface SearchResult {
