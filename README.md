@@ -8,12 +8,11 @@
 [![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/murtaza-nasir/maestro.git)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://hub.docker.com/r/yourusername/maestro)
 
-> **⚠️ Version 0.1.3 - BREAKING CHANGE (08/15/2025)** 
+> **⚠️ Important Notice: Database Migration in v2.0.0**
 > 
-> Complete migration from SQLite/ChromaDB to PostgreSQL with pgvector. 
-> - **Action Required**: If upgrading, you must rebuild from scratch with `docker compose down -v`
-> - **New Requirements**: PostgreSQL with pgvector extension (included in Docker setup)
-> - **Security**: All credentials now configurable via environment variables 
+> As of version 2.0.0, MAESTRO has completed a full migration from SQLite/ChromaDB to a unified **PostgreSQL** backend with the `pgvector` extension.
+> - **Action Required for Upgrading Users**: If you are upgrading from a version prior to 2.0.0, you must perform a clean installation. Your old database is not compatible.
+> - **Backup your data**, then run `docker compose down -v` to remove the old database volumes before starting the new version.
 
 MAESTRO is an AI-powered research platform you can host on your own hardware. It's designed to manage complex research tasks from start to finish in a collaborative, multi-user environment. Plan your research, let AI agents carry it out, and watch as they generate detailed reports based on your documents and sources from the web.
 
