@@ -239,7 +239,7 @@ CRITICAL: Do NOT include formatting like "**Title:**", "Title:", markdown, or an
             log_queue=log_queue, update_callback=update_callback
         )
         mission_context = self.controller.context_manager.get_mission_context(mission_id)
-        if not mission_context or not mission_context.plan or not mission_context.report_content:
+        if not mission_context or not mission_context.plan or mission_context.report_content is None:
             logger.error(f"Cannot process citations: Mission context, plan, or report content missing for {mission_id}.")
             self.controller.context_manager.log_execution_step(
                 mission_id, "AgentController", "Process Citations",
@@ -285,18 +285,20 @@ CRITICAL: Do NOT include formatting like "**Title:**", "Title:", markdown, or an
         note_id_to_doc_id_map: Dict[str, str] = {}  # Map note_ids to doc_ids
         
         for note in all_notes:
-            source_id_full = note.source_id  # e.g., doc_abc_123 or https://...
+            source_id_full = note.source_id
             source_type = note.source_type
-            lookup_key = ""
-            if source_type == "document":
-                lookup_key = source_id_full  # Use full UUID as doc_id
-            elif source_type == "web":
-                url_str = str(source_id_full)
-                lookup_key = hashlib.sha1(url_str.encode()).hexdigest()[:8]
-            elif source_type == "internal":
-                lookup_key = source_id_full
-            else:
-                lookup_key = source_id_full  # Fallback
+
+            # Get the doc_id from metadata if available, otherwise derive it
+            metadata_dict = note.source_metadata.dict() if hasattr(note.source_metadata, 'dict') else note.source_metadata
+            lookup_key = metadata_dict.get("doc_id")
+
+            if not lookup_key:
+                if source_type == "document":
+                    lookup_key = source_id_full.split('_')[0]
+                elif source_type == "web":
+                    lookup_key = hashlib.sha1(str(source_id_full).encode()).hexdigest()[:8]
+                else:
+                    lookup_key = source_id_full
 
             if lookup_key and lookup_key not in doc_metadata_source:
                 doc_metadata_source[lookup_key] = note
@@ -330,12 +332,7 @@ CRITICAL: Do NOT include formatting like "**Title:**", "Title:", markdown, or an
                             logger.warning(f"Could not map note ID '{potential_id}' to a document ID")
                             continue  # Skip this ID
                 
-                # Validate against known sources BEFORE adding to used_doc_ids
-                if potential_id in doc_metadata_source:
-                    used_doc_ids.add(potential_id)
-                else:
-                    # Log invalid IDs found within a potential placeholder pattern
-                    logger.warning(f"Found potential but invalid/unknown doc ID '{potential_id}' inside brackets: {match.group(0)}")
+                used_doc_ids.add(potential_id)
 
         if not used_doc_ids:
             logger.info(f"No valid citation placeholders containing known document IDs found in the draft for mission {mission_id}.")
@@ -358,8 +355,7 @@ CRITICAL: Do NOT include formatting like "**Title:**", "Title:", markdown, or an
         for doc_id in sorted(list(used_doc_ids)):  # Sort for consistent numbering
             if doc_id not in doc_citation_map:
                 doc_citation_map[doc_id] = citation_counter
-                # Metadata source already validated, so doc_id MUST be in doc_metadata_source
-                metadata_note = doc_metadata_source[doc_id]
+                metadata_note = doc_metadata_source.get(doc_id)
                 ref_entry = f"{citation_counter}. Unknown Source ({doc_id})"  # Default reference
 
                 if metadata_note:
@@ -466,7 +462,7 @@ CRITICAL: Do NOT include formatting like "**Title:**", "Title:", markdown, or an
                             ref_parts.append(f"({year_str}).")  # Year in parentheses with '.'
                         if title_str:
                             # APA uses sentence case for article titles, keeping original for now
-                            ref_parts.append(f"{title_str}.")  # Title ends with '.'
+                            ref_parts.append(f"*{title_str}*.")  # Title ends with '.'
                         if journal_str:
                             ref_parts.append(f"*{journal_str}*.")  # Journal italicized, ends with '.'
 

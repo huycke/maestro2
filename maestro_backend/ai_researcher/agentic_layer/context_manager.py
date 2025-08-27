@@ -1082,8 +1082,8 @@ class ContextManager:
         for structure and hierarchical numbering. Returns None if prerequisites are missing.
         """
         mission_context = self.get_mission_context(mission_id)
-        if not mission_context or not mission_context.plan or not mission_context.report_content:
-            logger.error(f"Cannot build draft: Mission context, plan, or report content missing for {mission_id}.")
+        if not mission_context or not mission_context.plan:
+            logger.error(f"Cannot build draft: Mission context or plan missing for {mission_id}.")
             return None
 
         full_draft = ""
