@@ -47,70 +47,30 @@ def research_agent(mock_model_dispatcher, mock_tool_registry, mock_query_prepare
 @pytest.mark.asyncio
 async def test_extract_content_windows_simple(research_agent, monkeypatch):
     """
-    Test basic window extraction for a single chunk without merging/splitting.
+    Test basic window extraction with fuzzy matching on more realistic text.
     """
     # 1. Arrange
     filename = "test_doc.pdf"
-    # P1(12)\nP2(31)\nP3(26)\nP4(17)\nP5(19) Total=109
-    mock_doc_content = "Paragraph 1.\nParagraph 2 is slightly longer.\nParagraph 3 is the target.\nParagraph 4 follows.\nParagraph 5 is last."
-    # Mock chunks data - targeting Paragraph 3 (index 2)
-    para3_text = "Paragraph 3 is the target."
-    mock_chunks = [
-        {
-            "id": "doc_abc_2",
-            "text": para3_text,  # Text field is required for the new implementation
-            "metadata": {
-                "doc_id": "abc",
-                "chunk_id": 2,
-                "original_filename": filename,
-                "start_paragraph_index": 2,  # Para 3
-                "end_paragraph_index": 2
-            }
-        }
-    ]
-    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 30)  # Window size
-    monkeypatch.setattr(config, 'MAX_PLANNING_CONTEXT_CHARS', 100)  # Max merged window size
+    # Simulate a longer, "messy" original document
+    mock_doc_content = """
+    This is the first paragraph of a long document. It contains various details that are not relevant to the chunk we are looking for.
+    It has multiple sentences and some extra    spacing.
 
-    # Mock _read_full_document_if_needed to return the content
-    mock_read_result = (mock_doc_content, {"tool_name": "read_full_document"}, filename)
-    research_agent._read_full_document_if_needed.return_value = mock_read_result
+    Here is another paragraph, serving as more context. The idea is to make the document long enough
+    that a fuzzy match is both necessary and more reliable. The ratio of a match is affected by the
+    length of the strings being compared.
 
-    # 2. Act
-    windows = await research_agent._extract_content_windows(filename, mock_chunks)
+    This is the third paragraph, and somewhere in the middle of this paragraph is the clean chunk to be found, which is a key piece of information. It's surrounded by other text.
 
-    # 3. Assert
-    assert len(windows) == 1  # Should produce one window
+    The fourth paragraph follows, adding even more text to ensure the chunk is not a trivial part of the whole.
+    Finally, the fifth paragraph concludes the document.
+    """
+    # Simulate a "clean" chunk from the middle of the third paragraph
+    clean_chunk_text = "the clean chunk to be found, which is a key piece of information"
 
-    # With the new implementation, we expect a window centered around the found text
-    # The para3_text starts at index 45 and ends at index 71
-    # Midpoint is 45 + (71-45)//2 = 58
-    # Window of size 30 centered at 58 would be from 58-15=43 to 58+15=73
-    # Clamped to document boundaries: 43 to 73
-    # Expected content is now NORMALIZED
-    expected_content = ". Paragraph 3 is the target. P"
-    assert windows[0]["content"] == expected_content
-    assert windows[0]["beginning_omitted"] is True  # Starts after char 0
-    # The normalized content might be shorter, adjust end_omitted check if needed based on actual normalized length vs original
-    assert windows[0]["end_omitted"] is True # Assuming normalized content is shorter than original
+    mock_chunks = [{"id": "doc_abc_1", "text": clean_chunk_text, "metadata": {"original_filename": filename}}]
 
-    research_agent._read_full_document_if_needed.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_extract_content_windows_merge(research_agent, monkeypatch):
-    """Test window merging when chunks are close or overlapping."""
-    # 1. Arrange
-    filename = "test_doc_merge.pdf"
-    # P1(12)\nP2(31)\nP3(26)\nP4(17)\nP5(19) Total=109
-    para2_text = "Paragraph 2 is slightly longer."
-    para3_text = "Paragraph 3 is the target."
-    mock_doc_content = f"Paragraph 1.\n{para2_text}\n{para3_text}\nParagraph 4 follows.\nParagraph 5 is last."
-    # Chunk 1 targets Para 2 (idx 1), Chunk 2 targets Para 3 (idx 2)
-    mock_chunks = [
-        { "id": "doc_merge_1", "text": para2_text, "metadata": { "original_filename": filename, "start_paragraph_index": 1, "end_paragraph_index": 1 } }, # Para 2
-        { "id": "doc_merge_2", "text": para3_text, "metadata": { "original_filename": filename, "start_paragraph_index": 2, "end_paragraph_index": 2 } }  # Para 3
-    ]
-    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 40) # Larger window to force overlap
+    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 100) # Window size
     monkeypatch.setattr(config, 'MAX_PLANNING_CONTEXT_CHARS', 200)
 
     mock_read_result = (mock_doc_content, {}, filename)
@@ -120,95 +80,99 @@ async def test_extract_content_windows_merge(research_agent, monkeypatch):
     windows = await research_agent._extract_content_windows(filename, mock_chunks)
 
     # 3. Assert
-    assert len(windows) == 1 # Windows should merge
-
-    # With the new implementation:
-    # para2_text starts at index 13 and ends at index 44, midpoint = 28
-    # Window of size 40 centered at 28 would be from 28-20=8 to 28+20=48
-    # para3_text starts at index 45 and ends at index 71, midpoint = 58
-    # Window of size 40 centered at 58 would be from 58-20=38 to 58+20=78
-    # These windows overlap (8-48 and 38-78), so they merge to 8-78
-    # Expected content is now NORMALIZED
-    expected_content = "h 1. Paragraph 2 is slightly longer. Paragraph 3 is the target. Paragr"
-    assert windows[0]["content"] == expected_content
-    assert windows[0]["beginning_omitted"] is True
-    # Adjust end_omitted check if needed based on actual normalized length vs original
-    assert windows[0]["end_omitted"] is True # Assuming normalized content is shorter than original
+    assert len(windows) == 1
+    # The fuzzy match should find the correct position.
+    # The window should contain the clean chunk and surrounding context.
+    assert clean_chunk_text in windows[0]["content"]
+    assert "somewhere in the middle of this paragraph" in windows[0]["content"] # Context before
+    assert "It's surrounded by other text" in windows[0]["content"] # Context after
 
 
 @pytest.mark.asyncio
-async def test_extract_content_windows_split(research_agent, monkeypatch):
-    """Test window splitting when merged window exceeds MAX_PLANNING_CONTEXT_CHARS."""
+async def test_extract_content_windows_merge(research_agent, monkeypatch):
+    """Test window merging with fuzzy matching on realistic text."""
     # 1. Arrange
-    filename = "test_doc_split.pdf"
-    para1 = "This is the first paragraph, quite long to test splitting. " * 3 # len 180
-    para2 = "Second paragraph, also long for the test case scenario. " * 3    # len 162
-    para3 = "Third paragraph is the target chunk location here. " * 3         # len 153
-    para4 = "Fourth paragraph adds more length after the target. " * 3        # len 165
-    para3_text = "Third paragraph is the target chunk location here. " * 3    # len 153
-    mock_doc_content = f"{para1}\n{para2}\n{para3_text}\n{para4}"
-    # Para offsets: P1(0,180), P2(181,343), P3(344,497), P4(498,663) Total=663
-    # Target Para 3 (index 2)
-    mock_chunks = [
-        { "id": "doc_split_1", "text": para3_text, "metadata": { "original_filename": filename, "start_paragraph_index": 2, "end_paragraph_index": 2 } }
-    ]
-    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 400) # Large window
-    monkeypatch.setattr(config, 'MAX_PLANNING_CONTEXT_CHARS', 300) # Small split limit
+    filename = "test_doc_merge.pdf"
+    messy_doc_content = "This is a long document preamble... " * 20 + \
+                        "Here is the first   chunk we want to find. It has some text. " + \
+                        "Some text in between that is not long enough to prevent a merge. " + \
+                        "And here is the second chunk, which should be merged. " + \
+                        "This is a long document postamble... " * 20
+    clean_chunk_1 = "first chunk we want to find"
+    clean_chunk_2 = "second chunk, which should be merged"
 
-    mock_read_result = (mock_doc_content, {}, filename)
+    mock_chunks = [
+        {"id": "doc_merge_1", "text": clean_chunk_1, "metadata": {"original_filename": filename}},
+        {"id": "doc_merge_2", "text": clean_chunk_2, "metadata": {"original_filename": filename}},
+    ]
+    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 150) # Window size
+    monkeypatch.setattr(config, 'MAX_PLANNING_CONTEXT_CHARS', 1000) # Large enough to not split
+
+    mock_read_result = (messy_doc_content, {}, filename)
     research_agent._read_full_document_if_needed.return_value = mock_read_result
 
     # 2. Act
     windows = await research_agent._extract_content_windows(filename, mock_chunks)
 
     # 3. Assert
-    assert len(windows) > 1 # Should split
+    assert len(windows) == 1
+    assert "first   chunk" in windows[0]["content"]
+    assert "second chunk" in windows[0]["content"]
+    assert "Some text in between" in windows[0]["content"]
 
-    # With the new implementation:
-    # para3_text starts at index 344 and ends at index 497, midpoint = 420
-    # Window of size 400 centered at 420 would be from 420-200=220 to 420+200=620
-    # This window is 400 chars, which exceeds MAX_PLANNING_CONTEXT_CHARS (300)
-    # So it should be split into two windows: 220-520 and 520-620
-    
-    # Instead of hardcoding the expected content, let's check the structure and length
+
+@pytest.mark.asyncio
+async def test_extract_content_windows_split(research_agent, monkeypatch):
+    """Test window splitting with fuzzy matching on realistic text."""
+    # 1. Arrange
+    filename = "test_doc_split.pdf"
+    messy_doc_content = "This is a long document preamble... " * 500 + \
+                        "Here is the first   chunk we want to find. It has some text. " + \
+                        "This is a very long section of text in between the two chunks... " * 500 + \
+                        "And here is the second chunk, which should NOT be merged. " + \
+                        "This is a long document postamble... " * 500
+    clean_chunk_1 = "first chunk we want to find"
+    clean_chunk_2 = "second chunk, which should NOT be merged"
+
+    mock_chunks = [
+        {"id": "doc_split_1", "text": clean_chunk_1, "metadata": {"original_filename": filename}},
+        {"id": "doc_split_2", "text": clean_chunk_2, "metadata": {"original_filename": filename}},
+    ]
+    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 10) # Make windows smaller
+    monkeypatch.setattr(config, 'MAX_PLANNING_CONTEXT_CHARS', 1000) # Does not matter here
+
+    mock_read_result = (messy_doc_content, {}, filename)
+    research_agent._read_full_document_if_needed.return_value = mock_read_result
+
+    # 2. Act
+    windows = await research_agent._extract_content_windows(filename, mock_chunks)
+
+    # 3. Assert
     assert len(windows) == 2
-    
-    # Check that the content contains the expected text fragments
-    assert "Second paragraph" in windows[0]["content"] # Part of P2
-    assert "Third paragraph is the target" in windows[0]["content"] # All of P3
-    assert "Fourth paragraph add" in windows[0]["content"] # Start of P4
-
-    assert "s more length after the target" in windows[1]["content"] # Rest of P4
-
-    # Check the window lengths are appropriate
-    assert len(windows[0]["content"]) <= 300  # Should not exceed MAX_PLANNING_CONTEXT_CHARS
-    assert len(windows[1]["content"]) <= 300
-
-    # Check flags
-    assert windows[0]["beginning_omitted"] is True
-    assert windows[0]["end_omitted"] is True # First split doesn't reach the end of doc
-    assert windows[1]["beginning_omitted"] is True # Second split doesn't start at 0
-    assert windows[1]["end_omitted"] is True # Original window didn't reach end of doc
+    assert "first   chunk" in windows[0]["content"]
+    assert "second chunk" in windows[1]["content"]
+    assert "long document preamble" in windows[0]["content"]
+    assert "long section of text" not in windows[0]["content"]
+    assert "long section of text" in windows[1]["content"]
 
 
 @pytest.mark.asyncio
 async def test_extract_content_windows_edge_cases(research_agent, monkeypatch):
-    """Test chunks at the very beginning and end of the document."""
+    """Test fuzzy matching for chunks at the very beginning and end."""
     # 1. Arrange
     filename = "test_doc_edge.pdf"
-    para0_text = "Start Para."
-    para2_text = "End Para."
-    mock_doc_content = f"{para0_text}\nMiddle Para.\n{para2_text}" # Len 11, 11, 9. Total 33
-    # Para offsets: [(0, 11), (12, 23), (24, 33)]
-    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 20)
-    monkeypatch.setattr(config, 'MAX_PLANNING_CONTEXT_CHARS', 100)
-    mock_read_result = (mock_doc_content, {}, filename)
-    research_agent._read_full_document_if_needed.return_value = mock_read_result
+    messy_doc_content = "Start chunk here. \n\n Some middle content... \n\n And the End chunk."
+    clean_chunk_start = "Start chunk here."
+    clean_chunk_end = "And the End chunk."
 
-    # Case 1: Chunk at the beginning (Para 0)
-    mock_chunks_start = [{"id": "doc_edge_s", "text": para0_text, "metadata": {"original_filename": filename, "start_paragraph_index": 0, "end_paragraph_index": 0}}]
-    # Case 2: Chunk at the end (Para 2)
-    mock_chunks_end = [{"id": "doc_edge_e", "text": para2_text, "metadata": {"original_filename": filename, "start_paragraph_index": 2, "end_paragraph_index": 2}}]
+    mock_chunks_start = [{"id": "doc_edge_s", "text": clean_chunk_start, "metadata": {"original_filename": filename}}]
+    mock_chunks_end = [{"id": "doc_edge_e", "text": clean_chunk_end, "metadata": {"original_filename": filename}}]
+
+    monkeypatch.setattr(config, 'RESEARCH_NOTE_CONTENT_LIMIT', 20) # Small window
+    monkeypatch.setattr(config, 'MAX_PLANNING_CONTEXT_CHARS', 100)
+
+    mock_read_result = (messy_doc_content, {}, filename)
+    research_agent._read_full_document_if_needed.return_value = mock_read_result
 
     # 2. Act
     windows_start = await research_agent._extract_content_windows(filename, mock_chunks_start)
@@ -216,23 +180,17 @@ async def test_extract_content_windows_edge_cases(research_agent, monkeypatch):
 
     # 3. Assert Start Case
     assert len(windows_start) == 1
-    # With the new implementation:
-    # para0_text starts at index 0 and ends at index 11, midpoint = 5
-    # Window of size 20 centered at 5 would be from 5-10=-5 (clamped to 0) to 5+10=15
-    # Expected content is now NORMALIZED
-    assert windows_start[0]["content"] == "Start Para. Mid"
-    assert windows_start[0]["beginning_omitted"] is False # Starts at char 0
-    assert windows_start[0]["end_omitted"] is True # Ends before end of normalized doc
+    assert clean_chunk_start in windows_start[0]["content"]
+    assert "Some middle content" in windows_start[0]["content"]
+    assert windows_start[0]["beginning_omitted"] is False
+    assert windows_start[0]["end_omitted"] is True
 
     # 3. Assert End Case
     assert len(windows_end) == 1
-    # With the new implementation:
-    # para2_text starts at index 24 and ends at index 33, midpoint = 28
-    # Window of size 20 centered at 28 would be from 28-10=18 to 28+10=38 (clamped to 33, normalized length)
-    # Expected content is now NORMALIZED
-    assert windows_end[0]["content"] == "Para. End Para." # Removed leading space
-    assert windows_end[0]["beginning_omitted"] is True # Starts after char 0
-    assert windows_end[0]["end_omitted"] is False # Reaches end of normalized document
+    assert clean_chunk_end in windows_end[0]["content"]
+    assert "Some middle content" in windows_end[0]["content"]
+    assert windows_end[0]["beginning_omitted"] is True
+    assert windows_end[0]["end_omitted"] is False
 
 
     @pytest.mark.skip(reason="Test data file is missing")

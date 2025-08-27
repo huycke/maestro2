@@ -4,6 +4,7 @@ import re
 import asyncio
 import queue # <-- Add queue import
 import inspect # <-- Add inspect import
+import difflib # <-- Make sure to import this at the top of the file
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Callable, Awaitable, Set # Added Callable, Awaitable, Set
 from pydantic import ValidationError
@@ -87,6 +88,7 @@ class ResearchAgent(BaseAgent):
         self.controller = controller # <-- Store controller
         self.mission_id = None # Initialize mission_id as None
         # self.context_manager = context_manager
+        self._fuzzy_match_ratio_threshold = 0.8 # Add this line
         
         # Initialize paragraph split pattern for content windows
         self._paragraph_split_pattern = re.compile(r'(\n+)')
@@ -1139,122 +1141,106 @@ If no relevant sub-questions are identified, return an empty list for "sub_quest
         update_callback: Optional[Callable] = None
     ) -> List[Dict[str, Any]]:
         """
-        Reads a document using the provided/default tool registry, finds chunk locations,
-        calculates content windows centered around each chunk, merges overlapping windows,
-        and returns the processed windows.
+        Reads a document, finds the best match for each chunk's text using fuzzy matching,
+        and extracts a content window around that match. It then merges overlapping windows.
         """
         logger.debug(f"Extracting content windows for {filename} from {len(chunks)} chunks.")
-        if not chunks: return []
+        if not chunks:
+            return []
 
         full_content_original, read_tool_call, file_read = await self._read_full_document_if_needed(
             source_info={"source_type": "document", "metadata": chunks[0].get("metadata", {})},
             feedback_callback=feedback_callback,
             log_queue=log_queue,
             tool_registry_override=tool_registry_override,
-            update_callback=update_callback
+            update_callback=update_callback,
         )
 
         if not full_content_original:
             logger.warning(f"Could not read full content for {filename}. Cannot extract windows.")
             return []
 
-        # ... (rest of the function up to the loop is fine)
-
-        # Track processed chunks and their windows
         processed_chunks: Dict[str, Dict[str, Any]] = {}
         window_size = get_research_note_content_limit(self.mission_id)
         max_window_size = get_max_planning_context_chars(self.mission_id)
 
-        # First pass: Find each chunk's position and calculate its window
         for chunk in chunks:
             chunk_id = chunk.get("id", "unknown")
-            if chunk_id in processed_chunks:
+            chunk_text_to_find = chunk.get("text")
+
+            if not chunk_text_to_find:
+                logger.warning(f"Chunk {chunk_id} has no text to find. Skipping.")
                 continue
 
-            # ##################################################################
-            # ############ START OF THE FIX: USE PARAGRAPH INDICES #############
-            # ##################################################################
+            # --- FUZZY MATCHING LOGIC ---
+            sequence_matcher = difflib.SequenceMatcher(
+                None, chunk_text_to_find, full_content_original, autojunk=False
+            )
+            match = sequence_matcher.find_longest_match(
+                0, len(chunk_text_to_find), 0, len(full_content_original)
+            )
 
-            try:
-                # 1. Split the document into paragraphs more reliably (on two or more newlines)
-                paragraphs = re.split(r'\n{2,}', full_content_original)
-                paragraphs = [p.strip() for p in paragraphs if p.strip()]
-
-                # 2. Get the paragraph indices from the chunk's metadata
-                chunk_meta = chunk.get("metadata", {})
-                start_p_index = chunk_meta.get("start_paragraph_index")
-                end_p_index = chunk_meta.get("end_paragraph_index")
-
-                if start_p_index is None or end_p_index is None:
-                    logger.warning(f"Chunk {chunk_id} missing paragraph indices. Skipping.")
-                    continue
-
-                # 3. Find the character position of the chunk's starting paragraph
-                # We build a temporary string of paragraphs up to the start index to find its position
-                # This is more robust than searching for the text directly.
-                preceding_text = "\n\n".join(paragraphs[:start_p_index])
-                # Add 2 characters for the "\n\n" joiner if there was preceding text
-                chunk_start = len(preceding_text) + 2 if preceding_text else 0
-
-                # 4. Reconstruct the chunk's full text to find its end position
-                chunk_text_from_paras = "\n\n".join(paragraphs[start_p_index : end_p_index + 1])
-                chunk_end = chunk_start + len(chunk_text_from_paras)
-
-                logger.info(f"CHUNK_DEBUG: Chunk {chunk_id}: doc_len={len(full_content_original)}, num_paras={len(paragraphs)}")
-                logger.info(f"CHUNK_DEBUG: Chunk {chunk_id}: p_indices={start_p_index}-{end_p_index}, char_indices=[{chunk_start}:{chunk_end}]")
-
-                # --- The rest of the logic remains the same ---
-                chunk_length = chunk_end - chunk_start
-                chunk_midpoint = chunk_start + (chunk_length // 2)
-
-                half_window = window_size // 2
-                window_start = max(0, chunk_midpoint - half_window)
-                window_end = min(len(full_content_original), window_start + window_size)
-                
-                if window_end < window_start + window_size:
-                    window_start = max(0, window_end - window_size)
-
-                processed_chunks[chunk_id] = {
-                    "start": window_start,
-                    "end": window_end,
-                    "chunk_start": chunk_start,
-                    "chunk_end": chunk_end,
-                    "metadata": chunk.get("metadata", {})
-                }
-                logger.debug(f"Found chunk {chunk_id} at [{chunk_start}:{chunk_end}], window: [{window_start}:{window_end}]")
-
-            except Exception as e:
-                logger.error(f"Error processing chunk {chunk_id}: {str(e)}", exc_info=True)
+            # Confidence check: the size of the longest match should be a high percentage of the chunk's length
+            if match.size < 10 or (match.size / len(chunk_text_to_find)) < 0.8:
+                logger.warning(
+                    f"Could not find a confident match for chunk {chunk_id} in {filename}. "
+                    f"Match size: {match.size}, Chunk length: {len(chunk_text_to_find)}. Skipping."
+                )
                 continue
+
+            chunk_start = match.b
+            chunk_end = match.b + match.size
+
+            logger.info(f"CHUNK_DEBUG: Found match for chunk {chunk_id} at [{chunk_start}:{chunk_end}] with ratio {sequence_matcher.ratio()}")
+
+            # --- WINDOWING LOGIC ---
+            chunk_midpoint = chunk_start + (match.size // 2)
+            half_window = window_size // 2
+
+            window_start = max(0, chunk_midpoint - half_window)
+            window_end = min(len(full_content_original), window_start + window_size)
+
+            if window_end - window_start < window_size:
+                window_start = max(0, window_end - window_size)
+
+            processed_chunks[chunk_id] = {
+                "start": window_start,
+                "end": window_end,
+                "chunk_start": chunk_start,
+                "chunk_end": chunk_end,
+                "metadata": chunk.get("metadata", {}),
+            }
 
         if not processed_chunks:
             logger.warning(f"No valid chunks found in {filename}")
             return []
 
-        # Second pass: Merge overlapping windows
+        # --- MERGE AND SPLIT LOGIC (remains the same) ---
         sorted_windows = sorted(processed_chunks.items(), key=lambda x: x[1]["start"])
         merged_windows: List[Dict[str, Any]] = []
+
+        if not sorted_windows:
+            return []
+
         current_window = {
             "start": sorted_windows[0][1]["start"],
             "end": sorted_windows[0][1]["end"],
             "chunk_ids": [sorted_windows[0][0]],
-            "chunks_info": [sorted_windows[0][1]]
+            "chunks_info": [sorted_windows[0][1]],
         }
 
         for chunk_id, window_info in sorted_windows[1:]:
             if window_info["start"] <= current_window["end"]:
-                # Merge overlapping windows
                 current_window["end"] = max(current_window["end"], window_info["end"])
                 current_window["chunk_ids"].append(chunk_id)
                 current_window["chunks_info"].append(window_info)
             else:
-                # Start new window
                 merged_windows.append(current_window)
                 current_window = {
                     "start": window_info["start"],
                     "end": window_info["end"],
                     "chunk_ids": [chunk_id],
-                    "chunks_info": [window_info]
+                    "chunks_info": [window_info],
                 }
         merged_windows.append(current_window)
 
