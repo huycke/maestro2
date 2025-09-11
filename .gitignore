@@ -448,3 +448,5 @@ maestro_backend/nuke_and_restart.sh
 maestro_backend/ai_researcher/core_rag/vector_store_safe.py
 temp.txt
 setup.sh
+
+maestro2/
